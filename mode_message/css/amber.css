@@ -1,4 +1,11 @@
+html {
+	padding: 0px;
+	margin: 0px;
+}
+
 body {
+	padding: 8px;
+	margin: 0px;
 	background: #000000;
 	color: #FF7F00;
 	font-family: courier,monospace,serif;
@@ -14,6 +21,16 @@ a:hover {
 }
 form {
 	margin: 0px;
+}
+ol ul, ul ol, ul ul, ol ol {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+ol p:first-child, ul p:first-child {
+	margin-top: 0;
+}
+ol p:last-child, ul p:last-child {
+	margin-bottom: 0;
 }
 input, textarea {
 	font-family: courier,monospace,serif;
@@ -136,12 +153,20 @@ input, textarea {
 #posts .firstreply {
 	border-bottom: 1px solid #FF7F00;
 }
+#posts .firstreply .replytext:after {
+	content: "";
+	display: block;
+	height: 0.1px;
+	clear: both;
+	margin: 0px;
+}
 #posts .repliesomitted {
 }
 
 
 
 #posts .reply, #posts .deletedreply {
+	clear: both;
 	margin: 6px 6px 1em 6px;
 }
 #posts h3 {
@@ -171,6 +196,20 @@ input, textarea {
 	position: absolute;
 	right: 0.8em;
 }
+#posts img {
+	border-width: 1px;
+	float: left;
+	margin: 0.5em 2em 0.5em 3em;
+}
+#posts .nothumbnail {
+	float: left;
+	display: inline; /* stupid IE bug */
+	background: #000000;
+	border: 2px dashed #FF7F00;
+	text-align: center;
+	padding: 1em 0.5em 1em 0.5em;
+	margin: 0.5em 2em 0.5em 2em;
+}
 #posts .replytext {
 	margin: 0.5em 0px 0px 3em;
 }
@@ -197,6 +236,7 @@ input, textarea {
 
 
 #posts form {
+	clear: both;
 	border-top: 1px solid #FF7F00;
 	padding: 6px;
 }

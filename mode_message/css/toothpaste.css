@@ -1,6 +1,12 @@
+html {
+	padding: 0px;
+	margin: 0px;
+}
 body {
-         background: #FFFFFF;
-         color: #000000;
+	padding: 8px;
+	margin: 0px;
+	background: #FFFFFF;
+	color: #000000;
 }
 a {
 	color: #CC0000;
@@ -13,6 +19,16 @@ a:hover {
 }
 form {
 	margin: 0px;
+}
+ol ul, ul ol, ul ul, ol ol {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+ol p:first-child, ul p:first-child {
+	margin-top: 0;
+}
+ol p:last-child, ul p:last-child {
+	margin-bottom: 0;
 }
 
 
@@ -154,15 +170,24 @@ form {
 	padding: 3px;
 	-moz-border-radius: 4px;
 }
+#posts .replytext:after {
+	content: "";
+	display: block;
+	height: 0.1px;
+	clear: both;
+	margin: 0px;
+}
 #posts .repliesomitted {
 }
 
 
 
 #posts .reply {
+	clear: both;
 	margin: 0px 0px 0.5em 0px;
 }
 #posts .deletedreply {
+	clear: both;
 	margin: 0px 0px 1.2em 0px;
 }
 #posts h3 {
@@ -199,6 +224,21 @@ form {
 	right: 1.5em;
 	font-size: small;
 }
+#posts img {
+	border-width: 1px;
+	float: left;
+	margin: 0.5em 2em 0.5em 3em;
+}
+#posts .nothumbnail {
+	float: left;
+	display: inline; /* stupid IE bug */
+	background: #eeeedc;
+	border: 2px dashed #ddddca;
+	text-align: center;
+	padding: 1em 0.5em 1em 0.5em;
+	margin: 0.5em 2em 0.5em 2em;
+}
+
 #posts .replytext {
 	margin: 0.5em 0px 0px 3em;
 }
@@ -218,6 +258,7 @@ form {
 
 
 #posts form {
+	clear: both;
 	background: #D6E0F0;
 	color: #000080;
 	font-family: serif;

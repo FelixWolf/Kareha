@@ -1,7 +1,13 @@
 /* futaba style for kareha by coda & WAHa_06x36 */
+html {
+	padding: 0px;
+	margin: 0px;
+}
 body {
-	 background: #FFFFEE;
-	 color: #800000;
+	padding: 8px;
+	margin: 0px;
+	background: #FFFFEE;
+	color: #800000;
 }
 a {
 	color: #0000EE;
@@ -14,6 +20,16 @@ a:hover {
 }
 form {
 	margin: 0px;
+}
+ol ul, ul ol, ul ul, ol ol {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+ol p:first-child, ul p:first-child {
+	margin-top: 0;
+}
+ol p:last-child, ul p:last-child {
+	margin-bottom: 0;
 }
 
 
@@ -154,6 +170,7 @@ form {
 #posts .allreplies, #posts .firstreply, #posts .finalreplies {
 }
 #posts .repliesomitted {
+	clear: both;
 	background: #FFFFEE;
 	height: 4px;
 	margin: -0.3em 1em 0.5em 1em;
@@ -163,9 +180,11 @@ form {
 
 
 #posts .reply {
+	clear: both;
 	margin: 0px 0px 0.5em 0px;
 }
 #posts .deletedreply {
+	clear: both;
 	margin: 0px 0px 1.2em 0px;
 }
 #posts h3 {
@@ -202,6 +221,20 @@ form {
 	position: absolute;
 	right: 1em;
 }
+#posts img {
+	border: 1px solid #800000;
+	float: left;
+	margin: 0.5em 2em 0.5em 3em;
+}
+#posts .nothumbnail {
+	float: left;
+	display: inline; /* stupid IE bug */
+	background: #F0D7C7;
+	border: 2px dashed #EEAA88;
+	text-align: center;
+	padding: 1em 0.5em 1em 0.5em;
+	margin: 0.5em 2em 0.5em 2em;
+}
 #posts .replytext {
 	margin: 0.5em 0em 0em 3em;
 }
@@ -221,6 +254,7 @@ form {
 
 
 #posts form {
+	clear: both;
 	background: #F0E0D6;
 	color: #800000;
 	font-family: serif;

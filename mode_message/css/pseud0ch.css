@@ -1,4 +1,14 @@
 /* pseud0ch style for kareha by lolocaust and WAHa_06x36 */
+html {
+	padding: 0px;
+	margin: 0px;
+}
+
+body {
+	padding: 8px;
+	margin: 0px;
+}
+
 body.mainpage {
 	background: #C5AD99;
 /* If you want the classical style 0ch brickwall background image, */
@@ -28,6 +38,17 @@ a:hover {
 form {
 	margin: 0px;
 }
+ol ul, ul ol, ul ul, ol ol {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+ol p:first-child, ul p:first-child {
+	margin-top: 0;
+}
+ol p:last-child, ul p:last-child {
+	margin-bottom: 0;
+}
+
 
 .mainpage #topbar {
 	background: #CCFFCC;
@@ -90,7 +111,6 @@ body.threadpage #threads {
 	color: #000000;
 	padding: 7px;
 	margin-bottom: 2em;
-/*	-moz-border-radius: 6px; */
 	border: 1px outset grey;
 	clear: both;
 }
@@ -102,7 +122,6 @@ body.mainpage #threads {
 	color: #000000;
 	padding: 7px;
 	margin-bottom: 2em;
-/*	-moz-border-radius: 6px; */
 	border: 1px outset grey;
 	clear: both;
 }
@@ -151,7 +170,6 @@ body.mainpage #threadlist {
 	border-left: 1px inset grey;
 	border-right: 1px inset grey;
 	border-bottom: 1px inset grey;
-/*	-moz-border-radius: 4px; */
 }
 
 body.threadpage #threadlist {
@@ -163,7 +181,6 @@ body.threadpage #threadlist {
 	border-left: 1px inset grey;
 	border-right: 1px inset grey;
 	border-bottom: 1px inset grey;
-/*	-moz-border-radius: 4px; */
 }
 
 body.backlogpage #threadlist {
@@ -185,7 +202,6 @@ body.backlogpage #threadlist {
 	margin: 1px;
 	padding: 3px;
 	margin-bottom: 7px;
-/*	-moz-border-radius: 4px; */
 }
 #oldthreadlist .threadlink {
 	display: block;
@@ -202,13 +218,10 @@ body.backlogpage #threadlist {
 	margin: 0px;
 	padding: 6px;
 	border: 1px inset grey;
-/*	-moz-border-radius: 4px; */
 }
 #threads input, #threads textarea {
-/*	border: 1px solid #800000; */
 }
 #threads textarea {
-/*	-moz-border-radius: 4px; */
 }
 #threads input[type=submit] {
 }
@@ -226,7 +239,6 @@ body.backlogpage #threadlist {
 	border: 1px outset grey;
 	padding: 7px;
 	margin-bottom: 2em;
-/*	-moz-border-radius: 6px; */
 	clear: both;
 }
 .mainpage #posts .sagethread {
@@ -236,7 +248,6 @@ body.backlogpage #threadlist {
 	border: 2px inset grey;
 	padding: 9px;
 	margin-bottom: 2em;
-/*	-moz-border-radius: 6px; */
 	clear: both;
 }
 .mainpage #posts h2 {
@@ -276,19 +287,15 @@ body.backlogpage #threadlist {
 }
 #posts .allreplies, #posts .firstreply, #posts .finalreplies {
 }
-/* #posts .repliesomitted { */
-/*	background: #C5AD99; */
-/*	height: 4px; */
-/*	margin: -0.3em 1em 0.5em 1em; */
-/*	-moz-border-radius: 4px; */
-/*} */
 
 
 
 #posts .reply {
+	clear: both;
 	margin: 0px 0px 0.5em 0px;
 }
 #posts .deletedreply {
+	clear: both;
 	margin: 0px 0px 1.2em 0px;
 }
 #posts h3 {
@@ -328,6 +335,19 @@ body.backlogpage #threadlist {
 	position: relative;
 	top: -1.3em;
 }
+#posts img {
+	border-width: 1px;
+	float: left;
+	margin: 0.5em 2em 0.5em 3em;
+}
+#posts .nothumbnail {
+	float: left;
+	display: inline; /* stupid IE bug */
+	border: 1px inset grey;
+	text-align: center;
+	padding: 1em 0.5em 1em 0.5em;
+	margin: 0.5em 2em 0.5em 2em;
+}
 #posts .replytext {
 	margin: 0.5em 0em 0em 3em;
 }
@@ -345,6 +365,7 @@ body.backlogpage #threadlist {
 }
 
 #posts form {
+	clear: both;
 	background: #EFEFEF;
 	color: #000000;
 	font-family: serif;

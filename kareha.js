@@ -51,7 +51,7 @@ function get_password(name)
 
 function insert(text,thread) /* hay WTSnacks what's goin on in this function? */
 {
-	var textarea=document["postform"+thread].comment;
+	var textarea=document.getElementById("postform"+thread).comment;
 	if(textarea)
 	{
 		if(textarea.createTextRange && textarea.caretPos)
@@ -67,21 +67,13 @@ function insert(text,thread) /* hay WTSnacks what's goin on in this function? */
 	}
 }
 
-function expand_field(thread)
+function w_insert(text,link)
 {
-	var textarea;
-	if(thread) textarea=document["postform"+thread].comment;
-	else textarea=document.threadform.comment;
-	textarea.rows=15;
+	if(document.body.className=="mainpage") document.location=link+"#i"+text;
+	else insert(text,"");
 }
 
-function shrink_field(thread)
-{
-	var textarea;
-	if(thread) textarea=document["postform"+thread].comment;
-	else textarea=document.threadform.comment;
-	textarea.rows=5;
-}
+function size_field(id,rows) { document.getElementById(id).comment.setAttribute("rows",rows); }
 
 
 
@@ -102,23 +94,27 @@ function set_manager()
 			var children=spans[i].childNodes;
 			for(var j=0;j<children.length;j++)
 			{
-				if(children[j].nodeName=="A"&&children[j].href.substr(0,11)!="javascript:") children[j].href+="&admin="+manager;
+				if(children[j].nodeName.toLowerCase()=="a"&&children[j].href.substr(0,11)!="javascript:") children[j].href+="&admin="+manager;
 			}
 		}
 	}
 }
 
-function delete_post(thread,post)
+function delete_post(thread,post,file)
 {
 	if(confirm("Are you sure you want to delete reply "+post+"?"))
 	{
+		var fileonly=false;
 		var script=document.forms[0].action;
 		var password=manager?manager:document.forms[0].password.value;
+
+		if(file) fileonly=confirm("Leave the reply text and delete the only file?");
 
 		document.location=script
 		+"?task=delete"
 		+"&delete="+thread+","+post
-		+"&password="+password;
+		+"&password="+password
+		+"&fileonly="+(fileonly?"1":"0");
 	}
 }
 
@@ -175,15 +171,8 @@ function get_preferred_stylesheet()
 	return null;
 }
 
-/*window.onload=function(e)
-{
-	if(style_cookie)
-	{
-		var cookie=get_cookie(style_cookie);
-		var title=cookie?cookie:get_preferred_stylesheet();
-		set_stylesheet(title);
-	}
-}*/
+function set_inputs(id) { with(document.getElementById(id)) {if(!name.value) name.value=get_cookie("name"); if(!link.value) link.value=get_cookie("link"); if(!password.value) password.value=get_password("password"); } }
+function set_delpass(id) { with(document.getElementById(id)) password.value=get_cookie("password"); }
 
 window.onunload=function(e)
 {
@@ -192,6 +181,11 @@ window.onunload=function(e)
 		var title=get_active_stylesheet();
 		set_cookie(style_cookie,title,365);
 	}
+}
+
+window.onload=function(e)
+{
+	if(match=/#i(.+)/.exec(document.location.toString())) insert(unescape(match[1]),"");
 }
 
 if(style_cookie)

@@ -1,6 +1,6 @@
 use strict;
 
-BEGIN { require 'wakautils.pl'; }
+BEGIN { require 'wakautils.pl' }
 
 
 
@@ -19,11 +19,14 @@ use constant S_MANAGE => 'Manage';
 use constant S_REBUILD => 'Rebuild caches';
 use constant S_ALLTHREADS => 'All threads';
 use constant S_NAME => 'Name:';
-use constant S_EMAIL => 'E-mail:';
+use constant S_LINK => 'Link:';
 use constant S_FORCEDANON => '(Anonymous posting is being enforced)';
 use constant S_CAPTCHA => 'Verification:';
 use constant S_TITLE => 'Title:';
 use constant S_NEWTHREAD => 'Create new thread';
+use constant S_IMAGE => 'Image:';
+use constant S_IMAGEDIM => 'Image: ';
+use constant S_NOTHUMBNAIL => 'No<br />thumbnail';
 use constant S_REPLY => 'Reply';
 use constant S_LISTEXPL => 'Jump to thread list';
 use constant S_PREVEXPL => 'Jump to previous thread';
@@ -34,11 +37,14 @@ use constant S_NEXTBUTTON => '&#9660;';
 use constant S_TRUNC => 'Post too long. Click to view the <a href="%s">whole post</a> or the <a href="%s">entire thread</a>.';
 use constant S_PERMASAGED => ', permasaged';
 use constant S_POSTERNAME => 'Name:';
+use constant S_CAPPED => ' (Admin)';
 use constant S_DELETE => 'Del';
 use constant S_USERDELETE => 'Post deleted by user.';
 use constant S_MODDELETE => 'Post deleted by moderator.';
 use constant S_PERMASAGETHREAD => 'Permasage';
 use constant S_DELETETHREAD => 'Delete';
+
+use constant S_FRONT => 'Front page';								# Title of the front page in page list
 
 #
 # Error strings
@@ -47,18 +53,23 @@ use constant S_DELETETHREAD => 'Delete';
 use constant S_BADCAPTCHA => 'Wrong verification code entered.';			# Error message when the captcha is wrong
 use constant S_UNJUST => 'Unjust POST.';									# Error message on an unjust POST - prevents floodbots or ways not using POST method?
 use constant S_NOTEXT => 'No text entered.';								# Error message for no text entered in to title/comment
-use constant S_NOTITLE => 'No title entered.';							# Error message for no title entered
-use constant S_NOTALLOWED => 'Posting not allowed for non-admins.';								# Error message when the posting type is forbidden for non-admins
-use constant S_TOOLONG => 'Text field too long.';								# Error message for too many characters in a given field
-use constant S_TOOMANYLINES => 'Too many lines in post.';						# Error message for too many characters in a given field
+use constant S_NOTITLE => 'No title entered.';								# Error message for no title entered
+use constant S_NOTALLOWED => 'Posting not allowed for non-admins.';			# Error message when the posting type is forbidden for non-admins
+use constant S_TOOLONG => 'Text field too long.';							# Error message for too many characters in a given field
+use constant S_TOOMANYLINES => 'Too many lines in post.';					# Error message for too many characters in a given field
 use constant S_UNUSUAL => 'Abnormal reply.';								# Error message for abnormal reply? (this is a mystery!)
 use constant S_SPAM => 'Spammers are not welcome here!';					# Error message when detecting spam
 use constant S_THREADCOLL => 'Somebody else tried to post a thread at the same time. Please try again.';		# If two people create threads during the same second
-use constant S_NOTHREADERR => 'Thread specified does not exist.';		# Error message when a non-existant thread is accessed
-use constant S_BADDELPASS => 'Password incorrect.';						# Error message for wrong password (when user tries to delete file)
+use constant S_NOTHREADERR => 'Thread specified does not exist.';			# Error message when a non-existant thread is accessed
+use constant S_BADDELPASS => 'Password incorrect.';							# Error message for wrong password (when user tries to delete file)
 use constant S_NOTWRITE => 'Cannot write to directory.';					# Error message when the script cannot write to the directory, the chmod (777) is wrong
 use constant S_NOTASK => 'Script error; no task speficied.';				# Error message when calling the script incorrectly
-use constant S_NOLOG => 'Couldn\'t write to log.txt.';					# Error message when log.txt is not writeable or similar
+use constant S_NOLOG => 'Couldn\'t write to log.txt.';						# Error message when log.txt is not writeable or similar
+use constant S_TOOBIG => 'The file you tried to upload is too large.';		# Error message when the image file is larger than MAX_KB
+use constant S_EMPTY => 'The file you tried to upload is empty.';	# Error message when the image file is 0 bytes
+use constant S_BADFORMAT => 'File format not allowed.';			# Returns error when the file is not in a supported format.
+use constant S_DUPE => 'This file has already been posted <a href="%s">here</a>.';	# Error message when an md5 checksum already exists.
+use constant S_DUPENAME => 'A file with the same name already exists.';	# Error message when an filename already exists.
 
 
 
@@ -72,34 +83,25 @@ use constant GLOBAL_HEAD_INCLUDE => q{
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
 <title><if $title><var $title> - </if><const TITLE></title>
-<meta http-equiv="Content-Type"  content="text/html;charset=<const CHARSET>" />
-<link rel="shortcut icon" href="<var $path>favicon.ico" />
+<meta http-equiv="Content-Type" content="text/html;charset=<const CHARSET>" />
+<link rel="shortcut icon" href="<const expand_filename(FAVICON)>" />
 
 <if RSS_FILE>
-<link rel="alternate" title="RSS feed" href="<var $path><const RSS_FILE>" type="application/rss+xml" />
+<link rel="alternate" title="RSS feed" href="<const expand_filename(RSS_FILE)>" type="application/rss+xml" />
 </if>
 
-<loop \@stylesheets>
-<link rel="<if !$default>alternate </if>stylesheet" type="text/css" href="<var $path><var $filename>" title="<var $title>" />
+<loop $stylesheets>
+<link rel="<if !$default>alternate </if>stylesheet" type="text/css" href="<var expand_filename($filename)>" title="<var $title>" />
 </loop>
 
 <script type="text/javascript">var style_cookie="<const STYLE_COOKIE>";</script>
-<script type="text/javascript" src="<var $path>kareha.js"></script>
+<script type="text/javascript" src="<const expand_filename(JS_FILE)>"></script>
 </head>
 };
 
 
 
-use constant GLOBAL_FOOT_INCLUDE => q{
-
-<const include("include/footer.html")>
-
-<div id="footer">
-- <a href="<var $path><const RSS_FILE>">RSS feed</a>
-+ <a href="http://wakaba.c3.cx/">kareha</a>
-+ <a href="http://wakaba.c3.cx/">wakaba</a>
--
-</div>
+use constant GLOBAL_FOOT_INCLUDE => include("include/footer.html").q{
 </body></html>
 };
 
@@ -109,13 +111,13 @@ use constant GLOBAL_FOOT_INCLUDE => q{
 use constant MAIN_PAGE_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 <body class="mainpage">
 
-<const include("include/header.html")>
+}.include("include/header.html").q{
 
 <div id="topbar">
 
 <div id="stylebar">
 <strong><const S_BOARDLOOK></strong>
-<loop \@stylesheets>
+<loop $stylesheets>
 	<a href="javascript:set_stylesheet('<var $title>')"><var $title></a>
 </loop>
 </div>
@@ -132,11 +134,16 @@ use constant MAIN_PAGE_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 
 <div id="threads">
 
-<h1><const TITLE></h1>
+<h1>
+<if SHOWTITLEIMG==1><img src="<var expand_filename(TITLEIMG)>" alt="<const TITLE>" /></if>
+<if SHOWTITLEIMG==2><img src="<var expand_filename(TITLEIMG)>" onclick="this.src=this.src;" alt="<const TITLE>" /></if>
+<if SHOWTITLEIMG and SHOWTITLETXT><br /></if>
+<if SHOWTITLETXT><const TITLE></if>
+</h1>
 
 <a name="menu"></a>
 <div id="threadlist">
-<loop $threads><if $num<=THREADS_LISTED>
+<loop $allthreads><if $num<=THREADS_LISTED>
 	<span class="threadlink">
 	<a href="<var $self>/<var $thread>"><var $num>. 
 	<if $num<=THREADS_DISPLAYED></a><a href="#<var $num>"></if>
@@ -144,44 +151,51 @@ use constant MAIN_PAGE_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 	</span>
 </if></loop>
 
-<strong><a href="<var $path><const HTML_BACKLOG>"><const S_ALLTHREADS></a></strong>
+<strong><a href="<const expand_filename(HTML_BACKLOG)>"><const S_ALLTHREADS></a></strong>
 
 </div>
 
-<form name="threadform" action="<var $self>" method="post">
+<form id="threadform" action="<var $self>" method="post" enctype="multipart/form-data">
 <input type="hidden" name="task" value="post" />
 <input type="hidden" name="password" value="" />
 <table><col /><col /><col width="100%" /><tbody><tr valign="top">
-	<td><nobr><const S_NAME></nobr></td>
-	<td style="white-space:nowrap;"><nobr>
+	<td style="white-space:nowrap"><nobr><const S_NAME></nobr></td>
+	<td style="white-space:nowrap"><nobr>
 		<if !FORCED_ANON><input type="text" name="name" size="19" /></if>
 		<if FORCED_ANON><input type="text" size="19" disabled="disabled" /><input type="hidden" name="name" /></if>
-		<const S_EMAIL> <input type="text" name="email" size="19" /></nobr>
+		<const S_LINK> <input type="text" name="link" size="19" /></nobr>
 	</td>
 	<td>
 		<if FORCED_ANON><small><const S_FORCEDANON></small></if>
 	</td>
-</tr><tr>
 <if ENABLE_CAPTCHA>
-	<td><nobr><const S_CAPTCHA></nobr></td>
-	<td><input type="text" name="captcha" size="19" />
-	<img class="threadcaptcha" src="captcha.pl?selector=.threadcaptcha" />
-	</td><td></td>
 </tr><tr>
+	<td style="white-space:nowrap"><nobr><const S_CAPTCHA></nobr></td>
+	<td><input type="text" name="captcha" size="19" />
+	<img class="threadcaptcha" src="<const expand_filename('captcha.pl')>?selector=.threadcaptcha" />
+	</td><td></td>
 </if>
-	<td><nobr><const S_TITLE></nobr></td>
+</tr><tr>
+	<td style="white-space:nowrap"><nobr><const S_TITLE></nobr></td>
 	<td><input type="text" name="title" style="width:100%" /></td>
 	<td><input type="submit" value="<const S_NEWTHREAD>" /></td>
-	</tr><tr>
+</tr><tr>
 	<td></td>
-	<td colspan="2"><textarea name="comment" cols="64" rows="5" onfocus="expand_field()" onblur="shrink_field()"></textarea></td>
+	<td colspan="2">
+	<textarea name="comment" cols="64" rows="5" onfocus="size_field('threadform',15)" onblur="size_field('threadform',5)"></textarea>
+	</td>
+<if ALLOW_IMAGE_THREADS>
+</tr><tr>
+	<td style="white-space:nowrap"><nobr><const S_IMAGE></nobr></td>
+	<td colspan="2"><input name="file" size="49" type="file" /></td>
+</if>
 </tr></tbody></table>
 </form>
-<script type="text/javascript">with(document.threadform) {if(!name.value) name.value=get_cookie("name"); if(!email.value) email.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); }</script>
+<script type="text/javascript">set_inputs("threadform");</script>
 
 </div>
 
-<const include("include/mid.html")>
+}.include("include/mid.html").q{
 
 <div id="posts">
 
@@ -194,7 +208,7 @@ use constant MAIN_PAGE_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 	<div class="threadnavigation">
 	<a href="#menu" title="<const S_LISTEXPL>"><const S_LISTBUTTON></a>
 	<a href="#<var $prev>" title="<const S_PREVEXPL>"><const S_PREVBUTTON></a>
-	<a href="#<var $next>" title="<cibst S_NEXTEXPL>"><const S_NEXTBUTTON></a>
+	<a href="#<var $next>" title="<const S_NEXTEXPL>"><const S_NEXTBUTTON></a>
 	</div>
 
 	<div class="replies">
@@ -219,32 +233,36 @@ use constant MAIN_PAGE_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 	</div>
 	</div>
 
-	<form name="postform<var $thread>" action="<var $self>" method="post">
+	<form id="postform<var $thread>" action="<var $self>" method="post" enctype="multipart/form-data">
 	<input type="hidden" name="task" value="post" />
 	<input type="hidden" name="thread" value="<var $thread>" />
 	<input type="hidden" name="password" value="" />
 	<table><tbody><tr valign="top">
-		<td><nobr><const S_NAME></nobr></td>
+		<td style="white-space:nowrap"><nobr><const S_NAME></nobr></td>
 		<td>
 			<if !FORCED_ANON><input type="text" name="name" size="19" /></if>
 			<if FORCED_ANON><input type="text" size="19" disabled="disabled" /><input type="hidden" name="name" /></if>
-			<const S_EMAIL> <input type="text" name="email" size="19" />
+			<const S_LINK> <input type="text" name="link" size="19" />
 			<input type="submit" value="<const S_REPLY>" />
 			<if FORCED_ANON><small><const S_FORCEDANON></small></if>
 		</td>
-	</tr><tr>
 	<if ENABLE_CAPTCHA>
-		<td><nobr><const S_CAPTCHA></nobr></td>
+	</tr><tr>
+		<td style="white-space:nowrap"><nobr><const S_CAPTCHA></nobr></td>
 		<td><input type="text" name="captcha" size="19" />
-		<img class="postcaptcha" src="captcha.pl?selector=.postcaptcha" />
+		<img class="postcaptcha" src="<const expand_filename('captcha.pl')>?selector=.postcaptcha" />
 		</td>
-	</tr><tr>
 	</if>
-		<td></td>
-		<td><textarea name="comment" cols="64" rows="5" onfocus="expand_field(<var $thread>)" onblur="shrink_field(<var $thread>)"></textarea></td>
 	</tr><tr>
 		<td></td>
-
+		<td><textarea name="comment" cols="64" rows="5" onfocus="size_field('postform<var $thread>',15)" onblur="size_field('postform<var $thread>',5)"></textarea></td>
+	<if ALLOW_IMAGE_REPLIES>
+	</tr><tr>
+		<td style="white-space:nowrap"><nobr><const S_IMAGE></nobr></td>
+		<td colspan="2"><input name="file" size="49" type="file" /></td>
+	</if>
+	</tr><tr>
+		<td></td>
 		<td><div class="threadlinks">
 		<a href="<var $self>/<var $thread>/"><const S_ENTIRE></a>
 		<a href="<var $self>/<var $thread>/l50"><const S_LAST50></a>
@@ -252,7 +270,7 @@ use constant MAIN_PAGE_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 		</div></td>
 	</tr></tbody></table>
 	</form>
-	<script type="text/javascript">with(document.postform<var $thread>) {if(!name.value) name.value=get_cookie("name"); if(!email.value) email.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); }</script>
+	<script type="text/javascript">set_inputs("postform<var $thread>");</script>
 
 	</div>
 </if></loop>
@@ -266,13 +284,13 @@ use constant MAIN_PAGE_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 use constant THREAD_HEAD_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 <body class="threadpage">
 
-<const include("include/header.html")>
+}.include("include/header.html").q{
 
 <div id="topbar">
 
 <div id="navbar">
 <strong><const S_NAVIGATION></strong>
-<a href="<var $path><const HTML_SELF>"><const S_RETURN></a>
+<a href="<const expand_filename(HTML_SELF)>"><const S_RETURN></a>
 <a href="<var $self>/<var $thread>"><const S_ENTIRE></a>
 <a href="<var $self>/<var $thread>/l50"><const S_LAST50></a>
 <a href="<var $self>/<var $thread>/-100"><const S_FIRST100></a>
@@ -281,7 +299,7 @@ use constant THREAD_HEAD_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 
 <div id="stylebar">
 <strong><const S_BOARDLOOK></strong>
-<loop \@stylesheets>
+<loop $stylesheets>
 	<a href="javascript:set_stylesheet('<var $title>')"><var $title></a>
 </loop>
 </div>
@@ -290,8 +308,8 @@ use constant THREAD_HEAD_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 <strong><const S_ADMIN></strong>
 <a href="javascript:set_manager()"><const S_MANAGE></a>
 <span class="manage" style="display:none;">
-<a href="<var $self>?task=permasagethread&thread=<var $thread>"><const S_PERMASAGETHREAD></a>
-<a href="<var $self>?task=deletethread&thread=<var $thread>"><const S_DELETETHREAD></a>
+<a href="<var $self>?task=permasagethread&amp;thread=<var $thread>"><const S_PERMASAGETHREAD></a>
+<a href="<var $self>?task=deletethread&amp;thread=<var $thread>"><const S_DELETETHREAD></a>
 </span>
 </div>
 
@@ -314,45 +332,42 @@ use constant THREAD_FOOT_TEMPLATE => compile_template( q{
 </div>
 </div>
 
-<form name="postform<var $thread>" action="<var $self>" method="post">
+<form id="postform<var $thread>" action="<var $self>" method="post"  enctype="multipart/form-data">
 <input type="hidden" name="task" value="post" />
 <input type="hidden" name="thread" value="<var $thread>" />
 <input type="hidden" name="password" value="" />
 <table><tbody><tr>
-	<td><nobr><const S_NAME></nobr></td>
+	<td style="white-space:nowrap"><nobr><const S_NAME></nobr></td>
 	<td>
 		<if !FORCED_ANON><input type="text" name="name" size="19" /></if>
 		<if FORCED_ANON><input type="text" size="19" disabled="disabled" /><input type="hidden" name="name" /></if>
-		<const S_EMAIL> <input type="text" name="email" size="19" />
+		<const S_LINK> <input type="text" name="link" size="19" />
 		<input type="submit" value="<const S_REPLY>" />
 		<if FORCED_ANON><small><const S_FORCEDANON></small></if>
 	</td>
-</tr><tr>
 <if ENABLE_CAPTCHA>
-	<td><nobr><const S_CAPTCHA></nobr></td>
-	<td><input type="text" name="captcha" size="19" />
-		<img class="postcaptcha" src="<var $path>captcha.pl?selector=.postcaptcha" />
-	</td>
 </tr><tr>
+	<td style="white-space:nowrap"><nobr><const S_CAPTCHA></nobr></td>
+	<td><input type="text" name="captcha" size="19" />
+		<img class="postcaptcha" src="<const expand_filename('captcha.pl')>?selector=.postcaptcha" />
+	</td>
 </if>
+</tr><tr>
 	<td></td>
-	<td><textarea name="comment" cols="64" rows="5" onfocus="expand_field(<var $thread>)" onblur="shrink_field(<var $thread>)"></textarea><br /></td>
+	<td><textarea name="comment" cols="64" rows="5" onfocus="size_field('postform<var $thread>',15)" onblur="size_field('postform<var $thread>',5)"></textarea><br /></td>
+<if ALLOW_IMAGE_REPLIES>
+</tr><tr>
+	<td style="white-space:nowrap"><nobr><const S_IMAGE></nobr></td>
+	<td colspan="2"><input name="file" size="49" type="file" /></td>
+</if>
 </tr></tbody></table>
 </form>
-<script type="text/javascript">with(document.postform<var $thread>) {if(!name.value) name.value=get_cookie("name"); if(!email.value) email.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); }</script>
+<script type="text/javascript">set_inputs("postform<var $thread>");</script>
 
 </div>
 </div>
 
 }.GLOBAL_FOOT_INCLUDE);
-
-
-
-use constant THREAD_VIEW_TEMPLATE => compile_template( q{
-<var $header>
-<loop $replies><var $reply></loop>
-<var $footer>
-});
 
 
 
@@ -363,13 +378,31 @@ use constant REPLY_TEMPLATE => compile_template( q{
 <h3>
 <span class="replynum"><a title="Quote post number in reply" href="javascript:insert('&gt;&gt;<var $num>',<var $thread>)"><var $num></a></span>
 <const S_POSTERNAME>
-<span class="postername"><if $email><a href="mailto:<var $email>"></if><var $name><if $email></a></if></span><if $trip><span class="postertrip"><if $email><a href="mailto:<var $email>"></if><var $trip><if $email></a></if></span></if>
+<if $capped><em></if>
+<if $link><span class="postername"><a href="<var $link>"><var $name></a></span><span class="postertrip"><a href="<var $link>"><var $trip><if $capped><const S_CAPPED></if></a></span></if>
+<if !$link><span class="postername"><var $name></span><span class="postertrip"><var $trip><if $capped><const S_CAPPED></if></span></if>
+<if $capped></em></if>
 <var $date>
+<if $image><span class="filesize">(<const S_IMAGEDIM><em><var $width>x<var $height> <var $ext>, <var int($size/1024)> kb</em>)</span></if>
 <span class="deletebutton">
-<if ENABLE_DELETION>[<a href="javascript:delete_post(<var $thread>,<var $num>)"><const S_DELETE></a>]</if>
-<if !ENABLE_DELETION><span class="manage" style="display:none;">[<a href="javascript:delete_post(<var $thread>,<var $num>)"><const S_DELETE></a>]</span></if>
+<if ENABLE_DELETION>[<a href="javascript:delete_post(<var $thread>,<var $num><if $image>,true</if>)"><const S_DELETE></a>]</if>
+<if !ENABLE_DELETION><span class="manage" style="display:none;">[<a href="javascript:delete_post(<var $thread>,<var $num><if $image>,true</if>)"><const S_DELETE></a>]</span></if>
 </span>
 </h3>
+
+<if $image>
+	<if $thumbnail>
+		<a href="<var expand_filename($image)>">
+		<img src="<var expand_filename($thumbnail)>" width="<var $tn_width>" height="<var $tn_height>" 
+		alt="<var $image>: <var $width>x<var $height>, <var int($size/1024)> kb"
+		title="<var $image>: <var $width>x<var $height>, <var int($size/1024)> kb"
+		/></a>
+	</if><if !$thumbnail>
+		<div class="nothumbnail">
+		<a href="<var expand_filename($image)>"><const S_NOTHUMBNAIL></a>
+		</div>
+	</if>
+</if>
 
 <div class="replytext"><var $comment></div>
 
@@ -393,18 +426,18 @@ use constant DELETED_TEMPLATE => compile_template( q{
 use constant BACKLOG_PAGE_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 <body class="backlogpage">
 
-<const include("include/header.html")>
+}.include("include/header.html").q{
 
 <div id="topbar">
 
 <div id="navbar">
 <strong><const S_NAVIGATION></strong>
-<a href="<var $path><const HTML_SELF>"><const S_RETURN></a>
+<a href="<const expand_filename(HTML_SELF)>"><const S_RETURN></a>
 </div>
 
 <div id="stylebar">
 <strong><const S_BOARDLOOK></strong>
-<loop \@stylesheets>
+<loop $stylesheets>
 	<a href="javascript:set_stylesheet('<var $title>')"><var $title></a>
 </loop>
 </div>
@@ -428,8 +461,8 @@ use constant BACKLOG_PAGE_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 	<span class="threadlink">
 	<a href="<var $self>/<var $thread>"><var $num>. <var $title> (<var $postcount>)</a>
 	<span class="manage" style="display:none;">
-	( <a href="<var $self>?task=permasagethread&thread=<var $thread>"><const S_PERMASAGETHREAD></a>
-	| <a href="<var $self>?task=deletethread&thread=<var $thread>"><const S_DELETETHREAD></a>
+	( <a href="<var $self>?task=permasagethread&amp;thread=<var $thread>"><const S_PERMASAGETHREAD></a>
+	| <a href="<var $self>?task=deletethread&amp;thread=<var $thread>"><const S_DELETETHREAD></a>
 	)</span>
 	</span>
 </loop>
@@ -448,6 +481,7 @@ use constant RSS_TEMPLATE => compile_template( q{
 <channel>
 <title><const TITLE></title>
 <link><var $absolute_path><const HTML_SELF></link>
+<description>Posts on <const TITLE> at <var $ENV{SERVER_NAME}>.</description>
 
 <loop $threads><if $posts>
 	<item>
@@ -473,7 +507,7 @@ use constant RSS_TEMPLATE => compile_template( q{
 use constant ERROR_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 <body class="errorpage">
 
-<const include("include/header.html")>
+}.include("include/header.html").q{
 
 <div id="topbar">
 
@@ -484,7 +518,7 @@ use constant ERROR_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 
 <div id="stylebar">
 <strong><const S_BOARDLOOK></strong>
-<loop \@stylesheets>
+<loop $stylesheets>
 	<a href="javascript:set_stylesheet('<var $title>')"><var $title></a>
 </loop>
 </div>
@@ -495,7 +529,6 @@ use constant ERROR_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
 
 <h2><a href="<var escamp($ENV{HTTP_REFERER})>"><const S_RETURN></a></h2>
 
-</body>
 }.GLOBAL_FOOT_INCLUDE);
 
 
