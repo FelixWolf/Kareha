@@ -13,12 +13,15 @@ use Data::Dumper;
 use lib '.';
 BEGIN { require 'config.pl'; }
 BEGIN { require 'templates.pl'; }
+BEGIN { require 'config_defaults.pl'; }
 
 
 
 #
 # Global init
 #
+
+my @stylesheets=get_stylesheets();
 
 my $query=new CGI;
 my $task=$query->param("task");
@@ -146,8 +149,7 @@ sub build_main_page()
 		my @posts=map {
 			my %post;
 			my $reply=$threadpage[$_+1];
-			my $num=MAX_LINES_SHOWN;
-			my ($abbrev)=$reply=~m!((?>.*?\<br /\>){$num})!;
+			my $abbrev=abbreviate_reply($reply);
 
 			$post{postnum}=$_;
 			$post{first}=($_==1);
@@ -166,10 +168,50 @@ sub build_main_page()
 
 	write_array(HTML_SELF,make_template(MAIN_PAGE_TEMPLATE,threads=>\@threads));
 	write_array(HTML_BACKLOG,make_template(BACKLOG_PAGE_TEMPLATE,threads=>\@threads));
+	write_array(RSS_FILE,make_template(RSS_TEMPLATE,threads=>\@threads)) if(RSS_FILE);
 }
 
-sub process_post($)
+sub abbreviate_reply($)
 {
+	my ($reply)=@_;
+	my ($lines,$chars,@stack);
+
+	$reply=~m!^(.*?<div class="replytext">)(.*?)(</div>.*$)!s;
+	my ($prefix,$comment,$postfix)=($1,$2,$3);
+
+	while($comment=~m!(?:([^<]+)|<(/?)(\w+).*?(/?)>)!g)
+	{
+		my ($text,$closing,$tag,$implicit)=($1,$2,lc($3),$4);
+
+		if($text) { $chars+=length $text; }
+		else
+		{
+			push @stack,$tag if(!$closing and !$implicit);
+			pop @stack if($closing);
+
+			if(($closing or $implicit) and ($tag eq "p" or $tag eq "blockquote" or $tag eq "pre"
+			or $tag eq "li" or $tag eq "ol" or $tag eq "ul" or $tag eq "br"))
+			{
+				$lines+=int($chars/APPROX_LINE_LENGTH)+1;
+				$lines++ if($tag eq "p" or $tag eq "blockquote");
+				$chars=0;
+			}
+
+			if($lines>=MAX_LINES_SHOWN)
+			{
+ 				# check if there's anything left other than end-tags
+ 				return undef if((substr $comment,pos $comment)=~m!^(?:\s*</\w+>)*$!);
+
+				my $abbrev=$prefix.substr $comment,0,pos $comment;
+				while(my $tag=pop @stack) { $abbrev.="</$tag>" }
+				$abbrev.=$postfix;
+
+				return $abbrev;
+			}
+		}
+	}
+
+	return undef;
 }
 
 sub upgrade_threads()
@@ -188,6 +230,7 @@ sub upgrade_threads()
 		write_array($$thread{filename},@threadpage);
 	}
 }
+
 
 
 #
@@ -239,9 +282,6 @@ sub post_stuff($$$$$$$)
 	# check if thread exists
 	die S_NOTHREADERR if($thread and !-e RES_DIR.$thread.PAGE_EXT);
 
-	# create the thread if we are starting a new one
-	$thread=make_thread($title,$time) unless($thread);
-
 	# remember cookies
 	my $c_name=$name;
 	my $c_email=$email;
@@ -264,11 +304,14 @@ sub post_stuff($$$$$$$)
 	$title=clean_string($title);
 	$comment=clean_string($comment);
 
-	# format comment
-	$comment=format_comment($comment,$thread);
-
 	# insert default values for empty fields
 	$name=make_anonymous($ip,$time) unless($name or $trip);
+
+	# create the thread if we are starting a new one
+	$thread=make_thread($title,$time,$name.TRIPKEY.$trip) unless($thread);
+
+	# format the comment
+	$comment=format_comment($comment,$thread);
 
 	# generate date
 	$date=make_date($time,DATE_STYLE);
@@ -386,26 +429,111 @@ sub clean_string($)
 sub format_comment($$)
 {
 	my ($comment,$thread)=@_;
+
 	# fix newlines
 	$comment=~s/\r\n/\n/g;
 	$comment=~s/\r/\n/g;
 
-	# fix up >> links
-	$comment=~s!&gt;&gt;([0-9\-]+)!\<a href="$ENV{SCRIPT_NAME}/$thread/$1"\>&gt;&gt;$1\</a\>!gm;
+	# hide >>1 references from the quoting code
+	$comment=~s/&gt;&gt;([0-9\-]+)/&gtgt;$1/g;
 
-	# colour quoted sections
-	$comment=~s!^(&gt;.*)$!\<span class="quoted"\>$1\</span\>!gm;
+	my $handler=sub # fix up >>1 references
+	{
+		my $line=shift;
+		$line=~s!&gtgt;([0-9\-]+)!\<a href="$ENV{SCRIPT_NAME}/$thread/$1"\>&gt;&gt;$1\</a\>!gm;
+		return $line;
+	};
 
-	# make URLs into links - is this magic or what
-	$comment=~s{(http://[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:\s|$))}{\<a href="$1"\>$1\</a\>$2}sgi;
+	my @lines=split /\n/,$comment;
+	if(ENABLE_WAKABAMARK) { $comment=do_blocks($handler,0,@lines) }
+	else { $comment="<p>".do_spans($handler,@lines)."</p>" }
 
-	# count number of newlines if MAX_LINES is not 0 - wow, magic.
-	die S_TOOMANYLINES if(MAX_LINES and scalar(()=$comment=~m/\n/g)>=MAX_LINES);
-
-	# replace newlines with <br />
-	$comment=~s!\n!<br />!g;
+	# restore >>1 references hidden in code blocks
+	$comment=~s/&gtgt;/&gt;&gt;/g;
 
 	return $comment;
+}
+
+sub do_blocks($@)
+{
+	my ($handler,$simplify,@lines)=@_;
+	my $res;
+
+	while(defined($_=$lines[0]))
+	{
+		if(/^\s*$/) { shift @lines; } # skip empty lines
+		elsif(/^(1\.|[\*\+\-]) .*/) # lists
+		{
+			my ($tag,$re,$html);
+
+			if($1 eq "1.") { $tag="ol"; $re=qr/[0-9]+\./; }
+			else { $tag="ul"; $re=qr/\Q$1\E/; }
+
+			while($lines[0]=~/^($re)(?: |\t)(.*)/)
+			{
+				my $spaces=(length $1)+1;
+				my @item=($2);
+				shift @lines;
+
+				while($lines[0]=~/^(?: {1,$spaces}|\t)(.*)/) { push @item,$1; shift @lines }
+				$html.="<li>".do_blocks($handler,1,@item)."</li>";
+			}
+			$res.="<$tag>$html</$tag>";
+		}
+		elsif(/^(?:    |\t).*/) # code sections
+		{
+			my @code;
+			while($lines[0]=~/^(?:    |\t)(.*)/) { push @code,$1; shift @lines; }
+			$res.="<pre><code>".(join "<br />",@code)."</code></pre>";
+		}
+		elsif(/^&gt;.*/) # quoted sections
+		{
+			my @quote;
+			while($lines[0]=~/^(&gt;.*)/) { push @quote,$1; shift @lines; }
+			$res.="<blockquote>".do_spans($handler,@quote)."</blockquote>";
+
+			#while($lines[0]=~/^&gt;(.*)/) { push @quote,$1; shift @lines; }
+			#$res.="<blockquote>".do_blocks($handler,@quote)."</blockquote>";
+		}
+		else # normal paragraph
+		{
+			my @text;
+			while($lines[0]!~/^(?:\s*$|1\. |[\*\+\-] |&gt;|    |\t)/) { push @text,shift @lines; }
+			if(!defined($lines[0]) and $simplify) { $res.=do_spans($handler,@text) }
+			else { $res.="<p>".do_spans($handler,@text)."</p>" }
+		}
+		$simplify=0;
+	}
+	return $res;
+}
+
+sub do_spans($@)
+{
+	my $handler=shift;
+	return join "<br />",map
+	{
+		my $line=$_;
+		my @codespans;
+
+		# hide <code> sections
+		$line=~s{(`+)([^<>]+?)\1}{push @codespans,$2; "<code></code>"}ge if(ENABLE_WAKABAMARK);
+
+		# make URLs into links
+		$line=~s{(https?://[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:[\s<>"]|$))}{\<a href="$1"\>$1\</a\>$2}sgi;
+
+		# do <strong>
+		$line=~s{([^0-9a-zA-Z\*_]|^)(\*\*|__)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2([^0-9a-zA-Z\*_]|$)}{$1<strong>$3</strong>$4}g if(ENABLE_WAKABAMARK);
+
+		# do <em>
+		$line=~s{([^0-9a-zA-Z\*_]|^)(\*|_)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2([^0-9a-zA-Z\*_]|$)}{$1<em>$3</em>$4}g if(ENABLE_WAKABAMARK);
+
+		$line=$handler->($line) if($handler);
+
+		# fix up <code> sections
+		$line=~s{<code></code>}{"<code>".(shift @codespans)."</code>"}ge if(ENABLE_WAKABAMARK);
+
+		$line;
+	} @_;
 }
 
 sub make_anonymous($$)
@@ -489,14 +617,14 @@ sub make_reply(%)
 }
 
 
-sub make_thread($$)
+sub make_thread($$$)
 {
-	my ($title,$time)=@_;
+	my ($title,$time,$author)=@_;
 	my $filename=RES_DIR.$time.PAGE_EXT;
 
 	die S_THREADCOLL if(-e $filename);
 
-	write_array($filename,make_meta_header(title=>$title,postcount=>0,lasthit=>$time,permasage=>0),"","");
+	write_array($filename,make_meta_header(title=>$title,postcount=>0,lasthit=>$time,permasage=>0,author=>$author),"","");
 
 	return $time;
 }
@@ -758,6 +886,32 @@ sub cfg_expand($%)
 	return $str;
 }
 
+sub get_stylesheets()
+{
+	my $found=0;
+	my @stylesheets=map
+	{
+		my %sheet;
+
+		$sheet{filename}=$_;
+
+		($sheet{title})=m!([^/]+)\.css$!i;
+		$sheet{title}=ucfirst $sheet{title};
+		$sheet{title}=~s/_/ /g;
+		$sheet{title}=~s/ ([a-z])/ \u$1/g;
+		$sheet{title}=~s/([a-z])([A-Z])/$1 $2/g;
+
+		if($sheet{title} eq DEFAULT_STYLE) { $sheet{default}=1; $found=1; }
+		else { $sheet{default}=0; }
+
+		\%sheet;
+	} glob(CSS_DIR."*.css");
+
+	$stylesheets[0]{default}=1 if(@stylesheets and !$found);
+
+	return @stylesheets;
+}
+
 
 
 #
@@ -767,17 +921,21 @@ sub cfg_expand($%)
 sub make_template($%)
 {
 	my ($src,%vars)=@_;
+	my ($self_path)=$ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;
 
+	$src=~s/\s+/ /sg;
+	$src=~s/^\s+//;
+	$src=~s/\s+$//;
+
+	my $port=$ENV{SERVER_PORT}==80?"":":$ENV{SERVER_PORT}";
 	$vars{self}=$ENV{SCRIPT_NAME};
+	$vars{absolute_self}="http://$ENV{SERVER_NAME}$port$ENV{SCRIPT_NAME}";
+	$vars{path}=$self_path;
+	$vars{absolute_path}="http://$ENV{SERVER_NAME}$port$self_path";
 
 	my $res=expand_template($src,%vars);
 
-	$res=~s/(src|href|action)="([^#].*?)"/
-		$1.'="'.expand_filename($2).'"'
-	/gei;
-
-	$res=~s/\s+/ /sg;
-#	$res=~s/\> +\</\>\</sg;
+	$res=~s/\n/ /sg;
 
 	return $res;
 }
@@ -822,25 +980,27 @@ sub expand_template($%)
 	return $str;
 }
 
-sub expand_filename($)
-{
-	my ($filename)=@_;
-	return $filename if($filename=~m!^/!);
-	return $filename if($filename=~m!^\w+:!);
-
-	my ($self_path)=$ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;
-	return $self_path.$filename;
-}
-
 sub make_http_forward($)
 {
 	my ($location)=@_;
 
-	print "Status: 301 Go West\n";
-	print "Location: $location\n";
-	print "Content-Type: text/html\n";
-	print "\n";
-	print '<html><body><a href="'.$location.'">'.$location.'</a></body></html>';
+	if(ALTERNATE_REDIRECT)
+	{
+		print "Content-Type: text/html\n";
+		print "\n";
+		print "<html><head>";
+		print '<meta http-equiv="refresh" content="0; url='.$location.'" />';
+		print '<script type="text/javascript">document.location="'.$location.'";</script>';
+		print '</head><body><a href="'.$location.'">'.$location.'</a></body></html>';
+	}
+	else
+	{
+		print "Status: 301 Go West\n";
+		print "Location: $location\n";
+		print "Content-Type: text/html\n";
+		print "\n";
+		print '<html><body><a href="'.$location.'">'.$location.'</a></body></html>';
+	}
 }
 
 sub make_cookies(%)

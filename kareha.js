@@ -1,5 +1,3 @@
-var script_name;
-
 function get_cookie(name)
 {
 	with(document.cookie)
@@ -48,11 +46,71 @@ function get_password(name)
 	return make_password();
 }
 
+
+
+
+function insert(text,thread) /* hay WTSnacks what's goin on in this function? */
+{
+	var textarea=document["postform"+thread].comment;
+	if(textarea)
+	{
+		if(textarea.createTextRange && textarea.caretPos)
+		{
+			var caretPos=textarea.caretPos;
+			caretPos.text=caretPos.text.charAt(caretPos.text.length-1)==" "?text+" ":text;
+		}
+		else
+		{
+			textarea.value+=text+" ";
+		}
+		textarea.focus();
+	}
+}
+
+function expand_field(thread)
+{
+	var textarea;
+	if(thread) textarea=document["postform"+thread].comment;
+	else textarea=document.threadform.comment;
+	textarea.rows=15;
+}
+
+function shrink_field(thread)
+{
+	var textarea;
+	if(thread) textarea=document["postform"+thread].comment;
+	else textarea=document.threadform.comment;
+	textarea.rows=5;
+}
+
+
+
+
 var manager;
 
 function set_manager()
 {
 	manager=prompt("Enter management password:");
+}
+
+function thread_manager()
+{
+	manager=prompt("Enter management password:");
+
+	var spans=document.getElementsByTagName("span");
+	for(var i=0;i<spans.length;i++)
+	{
+		if(spans[i].className=="manage")
+		{
+			spans[i].style.display="";
+
+			var children=spans[i].childNodes;
+			for(var j=0;j<children.length;j++)
+			{
+				if(children[j].nodeName=="A") children[j].href+="&admin="+manager;
+			}
+		}
+	}
 }
 
 function delete_post(thread,post)
@@ -66,28 +124,6 @@ function delete_post(thread,post)
 		+"?task=delete"
 		+"&delete="+thread+","+post
 		+"&password="+password;
-	}
-}
-
-
-
-function thread_manager()
-{
-	manager=prompt("Enter management password:");
-
-	var spans=document.getElementsByTagName("span");
-	for(var i=0;i<spans.length;i++)
-	{
-		if(spans[i].className=="oldmanagelink")
-		{
-			spans[i].style.display="";
-
-			var children=spans[i].childNodes;
-			for(var j=0;j<children.length;j++)
-			{
-				if(children[j].nodeName=="A") children[j].href+="&admin="+manager;
-			}
-		}
 	}
 }
 
@@ -110,7 +146,6 @@ function find_stylesheet_color(selector)
 
 function make_captcha_link(classname)
 {
-	// this should use the script_name variable to figure out where captcha.pl is
 	return(
 		'captcha.pl?key='
 		+captcha_key
