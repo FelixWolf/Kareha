@@ -1,5 +1,3 @@
-# use encoding 'shift-jis'; # Uncomment this to use shift-jis in strings. ALSO uncomment the "no encoding" at the end of the file!
-
 # System config
 use constant ADMIN_PASS => 'CHANGEME';		# Admin password. For fucks's sake, change this.
 use constant SECRET => 'CHANGEME';	# Cryptographic secret. CHANGE THIS to something totally random, and long.
@@ -40,7 +38,5 @@ use constant RES_DIR => 'res/';			# Reply cache directory (needs to be writeable
 use constant HTML_SELF => 'index.html';	# Name of main html file
 use constant HTML_BACKLOG => 'subback.html';	# Name of backlog html file
 use constant PAGE_EXT => '.html';		# Extension used for board pages after first
-
-# no encoding; # Uncomment this if you uncommented the "use encoding" at the top of the file
 
 1;

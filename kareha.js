@@ -1,3 +1,5 @@
+var script_name;
+
 function get_cookie(name)
 {
 	with(document.cookie)
@@ -94,13 +96,24 @@ function find_stylesheet_color(selector)
 	for(var i=0;i<sheets.length;i++)
 	if(!sheets[i].disabled)
 	{
-		var rules=sheets[i].cssRules?sheets[i].cssRules:sheets[i].rules;
+		var rules=sheets[i].cssRules||sheets[i].rules;
 		for(var j=0;j<rules.length;j++)
 		if(rules[j].selectorText==selector)
 		{
 			return(rules[j].style.color);
 		}
 	}
+}
+
+function make_captcha_link(classname)
+{
+	// this should use the script_name variable to figure out where captcha.pl is
+	return(
+		'captcha.pl?key='
+		+captcha_key
+		+'&color='
+		+escape(find_stylesheet_color(classname))
+	);
 }
 
 
@@ -120,6 +133,17 @@ function set_stylesheet(styletitle)
 		}
 	}
 	if(!found) set_preferred_stylesheet();
+
+	if(document.images)
+	{
+		for(var i=0;i<document.images.length;i++)
+		{
+			if(document.images[i].getAttribute('class').indexOf('captcha')!=-1)
+			{
+				document.images[i].src=make_captcha_link("."+document.images[i].getAttribute('class'));
+			}
+		}
+	}
 }
 
 function set_preferred_stylesheet()
