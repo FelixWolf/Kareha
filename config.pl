@@ -1,3 +1,10 @@
+#
+# Example config file.
+# 
+# Uncomment and edit the options you want to specifically change from the
+# default values. You must specify ADMIN_PASS and SECRET.
+#
+
 # System config
 #use constant ADMIN_PASS => 'CHANGEME';		# Admin password. For fucks's sake, change this.
 #use constant SECRET => 'CHANGEME';			# Cryptographic secret. CHANGE THIS to something totally random, and long.
