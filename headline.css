@@ -1,23 +1,23 @@
 /* futaba style for kareha by coda & WAHa_06x36 */
 body
 {
-	 background: #FFFFEE;
-	 color: #800000;
+	 background: #FFFFFF;
+	 color: #000000;
 }
 
 a
 {
-	color: #0000EE;
+	color: #DD6600;
 }
 
 a:visited
 {
-	color: #0000DD;
+	color: #DD6600;
 }
 
 a:hover
 {
-        color:#DD0000;
+        color:#FFAA44;
 }
 
 form
@@ -30,7 +30,10 @@ form
 .title
 {
 	text-align: center;
+	border-bottom: 2px solid #FF7700;
 	font-size: 2em;
+	font-family: sans-serif;
+	padding: 4px 4px 0px 4px;
 }
 
 
@@ -46,19 +49,16 @@ form
 
 .navbar, .managerbar, .stylebar
 {
-	background: #F0E0D6;
-	padding: 3px 0px 3px 0px;
+	background: #EEEEEE;
+	border-bottom: 2px solid #FF7700;
+	font-family: sans-serif;
+	padding: 4px;
 	margin-left: 1em;
-	border: 1px solid #800000;
-	-moz-border-radius: 4px;
 }
 
 .navtitle, .managertitle, .styletitle
 {
-	background: #EEAA88;
-	padding: 3px;
-	color: #800000;
-	-moz-border-radius: 3px 0px 0px 3px;
+	font-weight: bold;
 }
 
 .navbar a, .managerbar a, .stylebar a
@@ -70,22 +70,19 @@ form
 
 .threadarea
 {
-	background: #EEAA88;
-	color: #800000;
-	padding: 4px;
+	background: #EEEEEE;
+	color: #000000;
+	border-bottom: 2px solid #BBBBBB;
 	margin-bottom: 2em;
-	-moz-border-radius: 6px;
 	clear: both;
 }
 
 .threadlist
 {
-	background: #F0E0D6;
-	font-family: serif;
-	margin: 3px;
-	padding: 6px;
+	font-family: sans-serif;
+	border-bottom: 2px solid #BBBBBB;
+	padding: 1em 0.5em 1em 0.5em;
 	margin-bottom: 7px;
-	-moz-border-radius: 4px;
 }
 
 .threadlink
@@ -101,12 +98,9 @@ form
 
 .oldthreadlist
 {
-	background: #F0E0D6;
-	font-family: serif;
-	margin: 3px;
-	padding: 6px;
+	font-family: sans-serif;
+	padding: 9px;
 	margin-bottom: 7px;
-	-moz-border-radius: 4px;
 }
 
 .oldthreadlink
@@ -122,63 +116,53 @@ form
 
 .threadform
 {
-	background: #F0E0D6;
-	font-family: serif;
-        color: #800000;
-        font-weight: bold;
+	font-family: sans-serif;
 	margin: 3px;
 	padding: 3px;
-	-moz-border-radius: 4px;
 }
 
 .threadform input, .threadform textarea
 {
-	border: 1px solid #800000;
+	border: 1px solid #000000;
 }
 
-.threadform textarea
-{
-	-moz-border-radius: 4px;
-}
-
-.threadform input[type=submit]
+input[type=submit].threadform
 {
 }
 
 .threadcaptcha
 {
-	color: #800000;
+	color: #000000;
 }
 
 
 
 .summaryarea, .replyarea
 {
-	background: #F0E0D6;
 	padding: 4px;
 	margin-bottom: 2em;
-	-moz-border-radius: 6px;
 	clear: both;
 }
 
 .permasagearea
 {
-	background: #F0E0D6;
-	border: 3px solid #EEAA88;
+	background: #EEEEEE;
 	padding: 4px;
 	margin-bottom: 2em;
-	-moz-border-radius: 6px;
 	clear: both;
 }
 
 .threadtitle
 {
 	float: left;
-	background: inherit;
+	background: #EEEEEE;
+	color: #000000;
+	border-bottom: 2px solid #FF7700;
 	font-size: 1.2em;
-	color: #CC1105;
+	font-family: sans-serif;
 	font-weight: bold;
-	margin-left: 1em;
+	margin-bottom: 0.7em;
+	padding-right: 0.2em;
 }
 
 .threadnavigation
@@ -189,6 +173,7 @@ form
 .titlepostcount
 {
 	font-weight: normal;
+	margin-left: 0.5em;
 }
 
 .allreplies
@@ -198,51 +183,58 @@ form
 
 .replygroup
 {
-	background: #F0E0D6;
-	color: #800000;
-	font-family: serif;
-	margin: 3px;
-	padding: 3px;
-	-moz-border-radius: 4px;
 }
 
 .repliesomitted
 {
-	background: #FFFFEE;
-	height: 4px;
-	margin: -0.3em 1em 0.5em 1em;
-	-moz-border-radius: 4px;
+	background: #EEEEEE;
+	height: 3px;
+	margin: 0em 2em 1em 2em;
 }
 
 .reply
 {
+	margin-bottom: 1.2em;
 }
 
 .replyheader
 {
+	position: relative;
+	height: 1em;
+	margin-left: 2em;
+	font-family: sans-serif;
 }
+
+.replyheader a { color: #000000; }
+.replyheader a:hover { color:#FFAA44; }
 
 .replynum
 {
+	position: absolute;
+	left: -2em;
+	width: 1.5em;
+	font-family: sans-serif;
+	text-align: right;
 	font-weight: bold;
-	margin-left: 0.3em;
-	margin-right: 0.3em;
 }
 
 .postername
 {
-	color: #117743;
+	color: #000000;
 	font-weight: bold;
 }
 
 .postertrip
 {
-	color: #228854;
+	color: #000000;
 }
 
 .deletedreply
 {
-	padding-bottom: 1em;
+	position: relative;
+	height: 1em;
+	margin-left: 2em;
+	padding-bottom: 1.5em;
 }
 
 .deleted
@@ -253,9 +245,8 @@ form
 
 .replytext
 {
+	margin-left: 2em;
 	margin-top: 0.5em;
-	margin-bottom: 0.5em;
-	margin-left: 3em;
 }
 
 .replyabbrev
@@ -267,8 +258,7 @@ form
 
 .quoted
 {
-	color: #789922;
-/*	background: inert;*/
+	color: #995500;
 }
 
 .deletebutton
@@ -285,33 +275,26 @@ form
 
 .postform
 {
-	background: #F0E0D6;
-	color: #800000;
-	font-family: serif;
+	background: #EEEEEE;
+	color: #000000;
+	border-bottom: 2px solid #BBBBBB;
+	font-family: sans-serif;
 	margin: 3px;
 	padding: 3px;
-	-moz-border-radius: 4px;
-	font-weight:800;
 }
 
 .postform input, .postform textarea
 {
-	border: 1px solid #800000;
-}
-
-.postform textarea
-{
-	-moz-border-radius: 4px;
+	border: 1px solid #000000;
 }
 
 .postform input[type=submit]
 {
-
 }
 
 .postcaptcha
 {
-	color: #800000;
+	color: #000000;
 }
 
 

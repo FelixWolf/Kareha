@@ -9,8 +9,10 @@ use constant GLOBAL_HEAD_TEMPLATE => q{
 <meta http-equiv="Content-Type"  content="text/html;charset=<var CHARSET>" />
 <link rel="stylesheet" type="text/css" href="toothpaste.css" title="Toothpaste" />
 <link rel="alternate stylesheet" type="text/css" href="futaba.css" title="Futaba" />
+<link rel="alternate stylesheet" type="text/css" href="headline.css" title="Headline" />
 <link rel="shortcut icon" href="favicon.ico" />
 <script type="text/javascript" src="kareha.js"></script>
+<script type="text/javascript">script_name="<var $self>;"</script>
 </head><body>
 };
 
@@ -37,14 +39,14 @@ use constant MAIN_PAGE_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
 <span class="styletitle">
 Board look
 </span>
-<script type="text/javascript">write_stylesheet_links(" ","stylelink")</script>
+<script type="text/javascript">write_stylesheet_links(" ")</script>
 </span>
 
 <span class="managerbar">
 <span class="styletitle">
 Admin
 </span>
-<a href="javascript:set_manager()" class="managerlink">Manage</a>
+<a href="javascript:set_manager()">Manage</a>
 </span>
 
 </div>
@@ -57,13 +59,13 @@ Admin
 <div class="threadlist">
 <loop $threads><if $num<=THREADS_LISTED>
 	<span class="threadlink">
-	<a class="threadlink" href="<var $self>/<var $thread>"><var $num>. 
-	<if $num<=THREADS_DISPLAYED></a><a class="threadlist" href="#<var $num>"></if>
+	<a href="<var $self>/<var $thread>"><var $num>. 
+	<if $num<=THREADS_DISPLAYED></a><a href="#<var $num>"></if>
 	<var $title> (<var $postcount>)</a>
 	</span>
 </if></loop>
 
-<span class="backloglink"><a class="backloglink" href="<var HTML_BACKLOG>">All threads</a></span>
+<span class="backloglink"><a href="<var HTML_BACKLOG>">All threads</a></span>
 
 </div>
 
@@ -73,8 +75,8 @@ Admin
 <input type="hidden" name="password" value="" />
 <table><col /><col /><col width="100%" /><tbody><tr valign="top">
 	<td>Name:</td>
-	<td style="white-space:nowrap;"><nobr><input type="text" name="name" size="19" class="threadform" />
-		E-mail: <input type="text" name="email" size="19" class="threadform" /></nobr>
+	<td style="white-space:nowrap;"><nobr><input type="text" name="name" size="19" />
+		E-mail: <input type="text" name="email" size="19" /></nobr>
 	</td>
 	<td>
 		<if FORCED_ANON><small>(Anonymous posting is being enforced)</small></if>
@@ -82,20 +84,20 @@ Admin
 </tr><tr>
 <if ENABLE_CAPTCHA>
 	<td>Verification:</td>
-	<td><input type="text" name="captcha" size="19" class="threadform" />
+	<td><input type="text" name="captcha" size="19" />
 		<script type="text/javascript">
-		document.write('<img class="threadcaptcha" src="captcha.pl?key='+captcha_key+'&color='+escape(find_stylesheet_color(".threadcaptcha"))+'" />');
+		document.write('<img class="threadcaptcha" src="'+make_captcha_link(".threadcaptcha")+'" />');
 		document.write('<input type="hidden" name="key" value="'+captcha_key+'" />');
 		</script>
 	</td><td></td>
 </tr><tr>
 </if>
 	<td>Title:</td>
-	<td><input type="text" name="title" style="width:100%" class="threadform" /></td>
-	<td><input type="submit" value="Create new thread" class="threadform" /></td>
+	<td><input type="text" name="title" style="width:100%" /></td>
+	<td><input type="submit" value="Create new thread" /></td>
 	</tr><tr>
 	<td></td>
-	<td colspan="2"><textarea name="comment" cols="64" rows="5" class="threadform"></textarea></td>
+	<td colspan="2"><textarea name="comment" cols="64" rows="5"></textarea></td>
 </tr></tbody></table>
 </form>
 <script type="text/javascript">with(document.threadform) {name.value=get_cookie("name"); email.value=get_cookie("email"); password.value=get_password("password"); }</script>
@@ -128,7 +130,7 @@ Admin
 		</if>
 
 		<if $omit and $first>
-		</div><div class="replygroup">
+		</div><div class="repliesomitted"></div><div class="replygroup">
 		</if>
 		</loop>
 
@@ -142,24 +144,24 @@ Admin
 	<input type="hidden" name="password" value="" />
 	<table><tbody><tr valign="top">
 		<td>Name:</td>
-		<td><input type="text" name="name" size="19" class="postform" />
-			E-mail: <input type="text" name="email" size="19" class="postform" />
-			<input type="submit" value="Reply" class="postform" />
+		<td><input type="text" name="name" size="19" />
+			E-mail: <input type="text" name="email" size="19" />
+			<input type="submit" value="Reply" />
 			<if FORCED_ANON><small>(Anonymous posting is being enforced)</small></if>
 		</td>
 	</tr><tr>
 	<if ENABLE_CAPTCHA>
 		<td>Verification:</td>
-		<td><input type="text" name="captcha" size="19" class="postform" />
+		<td><input type="text" name="captcha" size="19" />
 			<script type="text/javascript">
-			document.write('<img class="postcaptcha" src="captcha.pl?key='+captcha_key+'&color='+escape(find_stylesheet_color(".postcaptcha"))+'" />');
+			document.write('<img class="postcaptcha" src="'+make_captcha_link(".postcaptcha")+'" />');
 			document.write('<input type="hidden" name="key" value="'+captcha_key+'" />');
 			</script>
 		</td>
 	</tr><tr>
 	</if>
 		<td></td>
-		<td><textarea name="comment" cols="64" rows="5" class="postform"></textarea><br /></td>
+		<td><textarea name="comment" cols="64" rows="5"></textarea><br /></td>
 	</tr><tr>
 		<td></td>
 
@@ -188,21 +190,21 @@ use constant BACKLOG_PAGE_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
 <span class="navtitle">
 Navigation
 </span>
-<a href="<var HTML_SELF>" class="navlink">Return</a>
+<a href="<var HTML_SELF>">Return</a>
 </span>
 
 <span class="stylebar">
 <span class="styletitle">
 Board look
 </span>
-<script type="text/javascript">write_stylesheet_links(" ","stylelink")</script>
+<script type="text/javascript">write_stylesheet_links(" ")</script>
 </span>
 
 <span class="managerbar">
 <span class="styletitle">
 Admin
 </span>
-<a href="javascript:thread_manager()" class="managerlink">Manage</a>
+<a href="javascript:thread_manager()">Manage</a>
 </span>
 
 </div>
@@ -214,10 +216,10 @@ Admin
 <div class="oldthreadlist">
 <loop $threads>
 	<span class="oldthreadlink">
-	<a class="oldthreadlink" href="<var $self>/<var $thread>"><var $num>. <var $title> (<var $postcount>)</a>
+	<a href="<var $self>/<var $thread>"><var $num>. <var $title> (<var $postcount>)</a>
 	<span class="oldmanagelink" style="display:none;">
-	( <a class="oldmanagelink" href="<var $self>?task=permasagethread&thread=<var $thread>">Permasage</a>
-	| <a class="oldmanagelink" href="<var $self>?task=deletethread&thread=<var $thread>">Delete</a>
+	( <a href="<var $self>?task=permasagethread&thread=<var $thread>">Permasage</a>
+	| <a href="<var $self>?task=deletethread&thread=<var $thread>">Delete</a>
 	)</span>
 	</span>
 </loop>
@@ -238,10 +240,10 @@ use constant THREAD_HEAD_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
 <span class="navtitle">
 Navigation
 </span>
-<a class="navlink" href="<var HTML_SELF>">Return</a>
-<a class="navlink" href="<var $self>/<var $thread>">Entire thread</a>
-<a class="navlink" href="<var $self>/<var $thread>/l50">Last 50 replies</a>
-<a class="navlink" href="<var $self>/<var $thread>/-100">First 100 replies</a>
+<a href="<var HTML_SELF>">Return</a>
+<a href="<var $self>/<var $thread>">Entire thread</a>
+<a href="<var $self>/<var $thread>/l50">Last 50 replies</a>
+<a href="<var $self>/<var $thread>/-100">First 100 replies</a>
 <!-- hundred links go here -->
 </span>
 
@@ -249,14 +251,14 @@ Navigation
 <span class="styletitle">
 Board look
 </span>
-<script type="text/javascript">write_stylesheet_links(" ","stylelink")</script>
+<script type="text/javascript">write_stylesheet_links(" ")</script>
 </span>
 
 <span class="managerbar">
 <span class="styletitle">
 Admin
 </span>
-<a href="javascript:set_manager()" class="managerlink">Manage</a>
+<a href="javascript:set_manager()">Manage</a>
 </span>
 
 </div>
@@ -279,28 +281,28 @@ use constant THREAD_FOOT_TEMPLATE => q{
 <div class="postform">
 <form name="postform<var $thread>" action="<var $self>" method="post">
 <input type="hidden" name="task" value="post" />
-<input type="hidden" name="thread" value="<var $thread>" class="postform" />
+<input type="hidden" name="thread" value="<var $thread>" />
 <input type="hidden" name="password" value="" />
 <table><tbody><tr>
 	<td>Name:</td>
-	<td><input type="text" name="name" size="19" class="postform" />
-		E-mail: <input type="text" name="email" size="19" class="postform" />
-		<input type="submit" value="Reply" class="postform" />
+	<td><input type="text" name="name" size="19" />
+		E-mail: <input type="text" name="email" size="19" />
+		<input type="submit" value="Reply" />
 		<if FORCED_ANON><small>(Anonymous posting is being enforced)</small></if>
 	</td>
 </tr><tr>
 <if ENABLE_CAPTCHA>
 	<td>Verification:</td>
-	<td><input type="text" name="captcha" size="19" class="postform" />
+	<td><input type="text" name="captcha" size="19" />
 		<script type="text/javascript">
-		document.write('<img class="postcaptcha" src="captcha.pl?key='+captcha_key+'&color='+escape(find_stylesheet_color(".postcaptcha"))+'" />');
+		document.write('<img class="postcaptcha" src="'+make_captcha_link(".postcaptcha")+'" />');
 		document.write('<input type="hidden" name="key" value="'+captcha_key+'" />');
 		</script>
 	</td>
 </tr><tr>
 </if>
 	<td></td>
-	<td><textarea name="comment" cols="64" rows="5" class="postform" ></textarea><br /></td>
+	<td><textarea name="comment" cols="64" rows="5" ></textarea><br /></td>
 </tr></tbody></table>
 </form>
 <script type="text/javascript">with(document.postform<var $thread>) {name.value=get_cookie("name"); email.value=get_cookie("email"); password.value=get_password("password"); }</script>

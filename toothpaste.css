@@ -61,7 +61,7 @@ form
 	-moz-border-radius: 3px 0px 0px 3px;
 }
 
-.navlink, .managerlink, .stylelink
+.navbar a, .managerbar a, .stylebar a
 {
 	padding: 3px;
 }
@@ -78,7 +78,7 @@ form
 	clear: both;
 }
 
-div.threadlist
+.threadlist
 {
 	background: #FFFFFF;
 	font-family: serif;
@@ -87,24 +87,18 @@ div.threadlist
 	-moz-border-radius: 4px;
 }
 
-span.threadlink
+.threadlink
 {
-/*	display: block;*/
 	padding-right: 0.5em;
 }
 
-a.threadlink
+.backloglink
 {
-}
-
-span.backloglink
-{
-/*	display: block;*/
 	text-align: right;
 	font-weight: bold;
 }
 
-div.oldthreadlist
+.oldthreadlist
 {
 	background: #FFFFFF;
 	font-family: serif;
@@ -113,23 +107,18 @@ div.oldthreadlist
 	-moz-border-radius: 4px;
 }
 
-span.oldthreadlink
+.oldthreadlink
 {
 	display: block;
 }
 
-a.oldthreadlink
-{
-	margin-right: 1em;
-}
-
-
 .oldmanagelink
 {
 	font-size: small;
+	margin-left: 1em;
 }
 
-div.threadform
+.threadform
 {
 	background: #D6F0E0;
 	font-family: serif;
@@ -138,17 +127,17 @@ div.threadform
 	-moz-border-radius: 4px;
 }
 
-input.threadform, textarea.threadform
+.threadform input, .threadform textarea
 {
 	border: 1px solid #008000;
 }
 
-textarea.threadform
+.threadform textarea
 {
 	-moz-border-radius: 4px;
 }
 
-input[type=submit].threadform
+.threadform input[type=submit]
 {
 	background: #C0E0D0;
 }
@@ -281,7 +270,7 @@ input[type=submit].threadform
 
 
 
-div.postform
+.postform
 {
 	background: #D6E0F0;
 	color: #000080;
@@ -291,17 +280,17 @@ div.postform
 	-moz-border-radius: 4px;
 }
 
-input.postform, textarea.postform
+.postform input, .postform textarea
 {
 	border: 1px solid #000080;
 }
 
-textarea.postform
+.postform textarea
 {
 	-moz-border-radius: 4px;
 }
 
-input[type=submit].postform
+.postform input[type=submit]
 {
 	background: #C0D0E0;
 }

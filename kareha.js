@@ -75,16 +75,19 @@ function thread_manager()
 {
 	manager=prompt("Enter management password:");
 
-	var links=document.getElementsByTagName("a");
-	for(var i=0;i<links.length;i++)
-	{
-		if(links[i].className=="oldmanagelink") links[i].href+="&admin="+manager;
-	}
-
 	var spans=document.getElementsByTagName("span");
 	for(var i=0;i<spans.length;i++)
 	{
-		if(spans[i].className=="oldmanagelink") spans[i].style.display="";
+		if(spans[i].className=="oldmanagelink")
+		{
+			spans[i].style.display="";
+
+			var children=spans[i].childNodes;
+			for(var j=0;j<children.length;j++)
+			{
+				if(children[j].nodeName=="A") children[j].href+="&admin="+manager;
+			}
+		}
 	}
 }
 
@@ -181,7 +184,7 @@ function get_preferred_stylesheet()
 	return null;
 }
 
-function write_stylesheet_links(separator,classname)
+function write_stylesheet_links(separator)
 {
 	var links=document.getElementsByTagName("link");
 	var first=true;
@@ -192,9 +195,7 @@ function write_stylesheet_links(separator,classname)
 		if(rel.indexOf("style")!=-1&&title)
 		{
 			if(separator&&!first) document.write(separator);
-			document.write('<a href="javascript:set_stylesheet(\''+title+'\')"');
-			if(classname) document.write(' class="'+classname+'"');
-			document.write('>'+title+'</a>');
+			document.write('<a href="javascript:set_stylesheet(\''+title+'\')">'+title+'</a>');
 			first=false;
 		}
 	}
