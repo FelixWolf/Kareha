@@ -102,7 +102,7 @@ function set_manager()
 			var children=spans[i].childNodes;
 			for(var j=0;j<children.length;j++)
 			{
-				if(children[j].nodeName=="A") children[j].href+="&admin="+manager;
+				if(children[j].nodeName=="A"&&children[j].href.substr(0,11)!="javascript:") children[j].href+="&admin="+manager;
 			}
 		}
 	}
@@ -139,18 +139,6 @@ function set_stylesheet(styletitle)
 		}
 	}
 	if(!found) set_preferred_stylesheet();
-
-/*	if(document.images)
-	{
-		for(var i=0;i<document.images.length;i++)
-		{
-			var classname=document.images[i].getAttribute('class');
-			if(classname&&classname.indexOf('captcha')!=-1)
-			{
-				document.images[i].src=make_captcha_link("."+document.images[i].getAttribute('class'));
-			}
-		}
-	}*/
 }
 
 function set_preferred_stylesheet()
@@ -189,19 +177,28 @@ function get_preferred_stylesheet()
 
 /*window.onload=function(e)
 {
-	var cookie=get_cookie("karehastyle");
-	var title=cookie?cookie:get_preferred_stylesheet();
-	set_stylesheet(title);
+	if(style_cookie)
+	{
+		var cookie=get_cookie(style_cookie);
+		var title=cookie?cookie:get_preferred_stylesheet();
+		set_stylesheet(title);
+	}
 }*/
 
 window.onunload=function(e)
 {
-	var title=get_active_stylesheet();
-	set_cookie("karehastyle",title,365);
+	if(style_cookie)
+	{
+		var title=get_active_stylesheet();
+		set_cookie(style_cookie,title,365);
+	}
 }
 
-var cookie=get_cookie("karehastyle");
-var title=cookie?cookie:get_preferred_stylesheet();
-set_stylesheet(title);
+if(style_cookie)
+{
+	var cookie=get_cookie(style_cookie);
+	var title=cookie?cookie:get_preferred_stylesheet();
+	set_stylesheet(title);
+}
 
 var captcha_key=make_password();

@@ -377,3 +377,9 @@ body.backlogpage #threadlist {
         text-align: center;
         font-size: 0.8em;
 }
+
+
+
+.errorpage h1, .errorpage h2 {
+	text-align: center;
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use CGI::Carp qw(fatalsToBrowser);
+use CGI::Carp qw(fatalsToBrowser set_message);
 
 use strict;
 
@@ -20,6 +20,8 @@ BEGIN { require 'wakautils.pl'; }
 #
 # Global init
 #
+
+set_message(\&print_error);
 
 no strict;
 @stylesheets=get_stylesheets(); # make stylesheets visible to the templates
@@ -103,7 +105,7 @@ make_http_forward(HTML_SELF,ALTERNATE_REDIRECT);
 sub show_thread($)
 {
 	my ($path)=@_;
-	my ($thread,$range)=$path=~m!/([0-9]+)(.*)!;
+	my ($thread,$ranges)=$path=~m!/([0-9]+)/?(.*)!;
 	my $filename=RES_DIR.$thread.PAGE_EXT;
 	my $modified=(stat $filename)[9];
 
@@ -120,49 +122,54 @@ sub show_thread($)
 	my @page=read_array($filename);
 	die S_NOTHREADERR unless(@page);
 
-	my $posts=@page-3;
-	my ($start,$end);
+	my @posts;
+	my $total=@page-3;
 
-	if($range=~m!/([0-9]*)-([0-9]*)!)
+	foreach my $range (split /,/,$ranges)
 	{
-		$start=$1?$1:1;
-		$end=$2?$2:$posts;
+		if($range=~/^([0-9]*)-([0-9]*)$/)
+		{
+			my $start=($1 or 1);
+			my $end=($2 or $total);
 
-		$start=$posts if($start>$posts);
-		$end=$posts if($end>$posts);
-	}
-	elsif($range=~m!/l([0-9]+)!i)
-	{
-		$start=$posts-$1+1;
-		$end=$posts;
+			$start=$total if($start>$total);
+			$end=$total if($end>$total);
 
-		$start=1 if($start<0);
+			if($start<$end) { push @posts,($start..$end) }
+			else { push @posts,reverse ($end..$start) }
+		}
+		elsif($range=~/^([0-9]+)$/)
+		{
+			my $post=$1;
+			push @posts,$post if($post>0 and $post<=$total);
+		}
+		elsif($range=~/^l([0-9]+)$/i)
+		{
+			my $start=$total-$1+1;
+			$start=1 if($start<0);
+			push @posts,($start..$total);
+		}
+		elsif($range=~/^r([0-9]*)$/i)
+		{
+			my $num=($1 or 1);
+			push @posts,int (rand $total)+1 for(1..$num);
+		}
 	}
-	elsif($range=~m!/([0-9]+)!)
-	{
-		$start=$end=$1;
-		$start=$end=$1 if($start==0 or $start>$posts);
-	}
-	else
-	{
-		$start=1;
-		$end=$posts;
-	}
+
+	@posts=(1..$total) unless(@posts);
 
 	print "Content-Type: text/html; charset=".CHARSET."\n";
 	print "Date: ".make_date(time(),"http")."\n";
 	print "Last-Modified: ".make_date($modified,"http")."\n";
 	print "\n";
 
-	my @replies=map { reply=>$_ },@page[$start+1..$end+1];
+	my @replies=map +{ reply=>$page[$_+1], num=>$_ },@posts;
 
 	print THREAD_VIEW_TEMPLATE->(
 		header=>$page[1],
 		footer=>$page[$#page],
 		replies=>\@replies,
 		firstreply=>$page[2],
-		start=>$start,
-		end=>$end,
 	);
 }
 
@@ -247,10 +254,9 @@ sub upgrade_threads()
 sub post_stuff($$$$$$$)
 {
 	my ($thread,$name,$email,$title,$comment,$captcha,$key,$password)=@_;
-	my ($ip,$host,$trip,$time,$date);
 
 	# get a timestamp for future use
-	$time=time();
+	my $time=time();
 
 	# check that the request came in as a POST, or from the command line
 	die S_UNJUST if($ENV{REQUEST_METHOD} and $ENV{REQUEST_METHOD} ne "POST");
@@ -270,10 +276,10 @@ sub post_stuff($$$$$$$)
 
 	# check for empty post
 	die S_NOTEXT if($comment=~/^\s*$/);
-	die S_NOTITLE if($title=~/^\s*$/ and !$thread);
+	die S_NOTITLE if(REQUIRE_THREAD_TITLE and $title=~/^\s*$/ and !$thread);
 
 	# find hostname
-	$ip=$ENV{REMOTE_ADDR};
+	my $ip=$ENV{REMOTE_ADDR};
 	#$host = gethostbyaddr($ip);
 
 	# check captcha
@@ -283,8 +289,8 @@ sub post_stuff($$$$$$$)
 		die S_BADCAPTCHA if(!check_captcha($key,$captcha));
 	}
 
-	# proxy check
-#	proxy_check($ip) unless($whitelisted);
+	# proxy check - not implemented yet, and might not ever be
+	#proxy_check($ip) unless($whitelisted);
 
 	# spam check
 	die S_SPAM if(spam_check($comment,SPAM_FILE));
@@ -308,13 +314,31 @@ sub post_stuff($$$$$$$)
 	}
 
 	# clean up the inputs
-	$name=clean_string($name);
 	$email=clean_string($email);
 	$title=clean_string($title);
 	$comment=clean_string($comment);
 
 	# process the tripcode
+	my ($trip,$capped);
 	($name,$trip)=process_tripcode($name,TRIPKEY,SECRET);
+	$capped=1 if(grep { $trip eq $_ } ADMIN_TRIPS);
+
+	# check for posting limitations
+	unless($capped)
+	{
+		if($thread)
+		{
+			make_error(S_NOTALLOWED) if(!ALLOW_TEXT_REPLIES);
+			#make_error(S_NOTALLOWED) if($file and !ALLOW_IMAGE_REPLIES);
+			#make_error(S_NOTALLOWED) if(!$file and !ALLOW_TEXT_REPLIES);
+		}
+		else
+		{
+			make_error(S_NOTALLOWED) if(!ALLOW_TEXT_THREADS);
+			#make_error(S_NOTALLOWED) if($file and !ALLOW_IMAGE_THREADS);
+			#make_error(S_NOTALLOWED) if(!$file and !ALLOW_TEXT_THREADS);
+		}
+	}
 
 	# insert default values for empty fields
 	$name=make_anonymous($ip,$time) unless($name or $trip);
@@ -326,14 +350,14 @@ sub post_stuff($$$$$$$)
 	$comment=format_comment($comment,$thread);
 
 	# generate date
-	$date=make_date($time,DATE_STYLE);
+	my $date=make_date($time,DATE_STYLE);
 
 	# generate ID code if enabled
 	$date.=' ID:'.make_id_code($ip,$time,$email) if(DISPLAY_ID);
 
 	# add the reply to the thread
 	my $num=make_reply(ip=>$ip,thread=>$thread,name=>$name,trip=>$trip,email=>$email,
-	time=>$time,date=>$date,comment=>$comment);
+	time=>$time,date=>$date,title=>$title,comment=>$comment);
 
 	# make entry in the log
 	add_log($log,$thread,$num,$password,$ip,$key,'');
@@ -368,12 +392,12 @@ sub format_comment($$)
 	$comment=~s/\r/\n/g;
 
 	# hide >>1 references from the quoting code
-	$comment=~s/&gt;&gt;([0-9\-]+)/&gtgt;$1/g;
+	$comment=~s/&gt;&gt;((?:[0-9\-,lr]|&#44;)+)/&gtgt;$1/g;
 
 	my $handler=sub # fix up >>1 references
 	{
 		my $line=shift;
-		$line=~s!&gtgt;([0-9\-]+)!\<a href="$ENV{SCRIPT_NAME}/$thread/$1"\>&gt;&gt;$1\</a\>!gm;
+		$line=~s!&gtgt;((?:[0-9\-,lr]|&#44;)+)!\<a href="$ENV{SCRIPT_NAME}/$thread/$1"\>&gt;&gt;$1\</a\>!gm;
 		return $line;
 	};
 
@@ -443,8 +467,6 @@ sub make_reply(%)
 	my $filename=RES_DIR.$vars{thread}.PAGE_EXT;
 	my @page=read_array($filename);
 	my %meta=parse_meta_header($page[0]);
-
-	die S_THREADLOCKED if($meta{locked});
 
 	my $num=$meta{postcount}+1;
 
@@ -649,6 +671,8 @@ sub match_password($$$$)
 	my ($log,$thread,$post,$password)=@_;
 	my $encpass=encode_password($password);
 
+	return 0 unless(ENABLE_DELETION);
+
 	foreach(@{$log})
 	{
 		my @data=split /\s*,\s*/;
@@ -672,7 +696,7 @@ sub find_key($$)
 sub lock_log()
 {
 	open LOGFILE,"+>>log.txt" or die S_NOLOG;
-	flock LOGFILE,LOCK_EX;
+	eval "flock LOGFILE,LOCK_EX"; # may not work on some platforms - ignore it if it does not.
 	seek LOGFILE,0,0;
 
 	my @log=grep { /^([0-9]+)/; -e RES_DIR.$1.PAGE_EXT } read_array(\*LOGFILE);
@@ -708,6 +732,19 @@ sub add_log($$$$$$$)
 sub encode_password($) { return encode_base64(rc4(null_string(6),"p".(shift).SECRET),""); }
 sub encode_ip($) { my $iv=make_random_string(8); return $iv.':'.encode_base64(rc4($_[0],"l".$iv.SECRET),""); }
 
+#
+# Error handling
+#
+
+sub print_error($)
+{
+	my ($error)=@_;
+	my $short=$error;
+
+	$error=$1 if($error=~/^(.+?) at .+?\.pl line [0-9]+.+\n$/); # abbreviate error message
+
+	print ERROR_TEMPLATE->(error=>$error);
+}
 
 
 #

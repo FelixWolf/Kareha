@@ -169,7 +169,6 @@ form {
 	margin: 0px 0px 1.2em 0px;
 }
 #posts h3 {
-	position: relative;
 	font-size: 1em;
 	font-weight: normal;
 	margin: 0px;
@@ -201,7 +200,7 @@ form {
 #posts .deletebutton {
 	font-size: small;
 	position: absolute;
-	right: 0.5em;
+	right: 1em;
 }
 #posts .replytext {
 	margin: 0.5em 0em 0em 3em;
@@ -248,4 +247,10 @@ form {
 {
         text-align: center;
         font-size: 0.8em;
+}
+
+
+
+.errorpage h1, .errorpage h2 {
+	text-align: center;
 }

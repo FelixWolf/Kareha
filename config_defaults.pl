@@ -7,6 +7,7 @@ BEGIN {
 	# System config
 	die S_NOADMIN unless(defined &ADMIN_PASS);
 	die S_NOSECRET unless(defined &SECRET);
+	eval "use constant ADMIN_TRIPS => ()" unless(defined &ADMIN_TRIPS);
 
 	# Page look
 	eval "use constant TITLE => 'Kareha message board'" unless(defined &TITLE);
@@ -17,6 +18,10 @@ BEGIN {
 	eval "use constant DEFAULT_STYLE => 'Headline'" unless(defined &DEFAULT_STYLE);
 
 	# Limitations
+	eval "use constant ALLOW_TEXT_THREADS => 1" unless(defined &ALLOW_TEXT_THREADS);
+	eval "use constant ALLOW_TEXT_REPLIES => 1" unless(defined &ALLOW_TEXT_REPLIES);
+	eval "use constant ALLOW_IMAGE_THREADS => 0" unless(defined &ALLOW_IMAGE_THREADS);
+	eval "use constant ALLOW_IMAGE_REPLIES => 0" unless(defined &ALLOW_IMAGE_REPLIES);
 	eval "use constant MAX_RES => 1000" unless(defined &MAX_RES);
 	eval "use constant MAX_THREADS => 500" unless(defined &MAX_THREADS);
 	eval "use constant MAX_FIELD_LENGTH => 100" unless(defined &MAX_FIELD_LENGTH);
@@ -37,6 +42,7 @@ BEGIN {
 	eval "use constant CHARSET => 'utf-8'" unless(defined &CHARSET);
 	eval "use constant PROXY_CHECK => ()" unless(defined &PROXY_CHECK);
 	eval "use constant TRIM_METHOD => 1" unless(defined &TRIM_METHOD);
+	eval "use constant REQUIRE_THREAD_TITLE => 1" unless(defined &REQUIRE_THREAD_TITLE);
 	eval "use constant DATE_STYLE => '2ch'" unless(defined &DATE_STYLE);
 	eval "use constant DISPLAY_ID => 1" unless(defined &DISPLAY_ID);
 	eval "use constant EMAIL_ID => 'Heaven'" unless(defined &EMAIL_ID);
@@ -47,6 +53,8 @@ BEGIN {
 	eval "use constant ENABLE_WAKABAMARK => 1" unless(defined &ENABLE_WAKABAMARK);
 	eval "use constant APPROX_LINE_LENGTH => 150" unless(defined &APPROX_LINE_LENGTH);
 	eval "use constant COOKIE_PATH => 'root'" unless(defined &COOKIE_PATH);
+	eval "use constant STYLE_COOKIE => 'karehastyle'" unless(defined &STYLE_COOKIE);
+	eval "use constant ENABLE_DELETION => 1" unless(defined &ENABLE_DELETION);
 
 	# Internal paths and files - might as well leave this alone.
 	eval "use constant RES_DIR => 'res/'" unless(defined &RES_DIR);

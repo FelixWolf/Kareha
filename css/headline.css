@@ -154,7 +154,6 @@ select {
 	margin-bottom: 1.2em;
 }
 #posts h3 {
-	position: relative;
 	font-size: 1em;
 	font-family: sans-serif;
 	font-weight: normal;
@@ -250,7 +249,18 @@ select {
 }
 
 
+
 #footer {
         text-align: center;
         font-size: 0.8em;
+}
+
+
+
+.errorpage h1, .errorpage h2 {
+	text-align: center;
+}
+
+.errorpage h1 {
+	border: 2px dashed #aaa;
 }

@@ -145,7 +145,6 @@ input, textarea {
 	margin: 6px 6px 1em 6px;
 }
 #posts h3 {
-	position: relative;
 	font-size: 1em;
 	font-weight: normal;
 	margin: 0px;
@@ -170,7 +169,7 @@ input, textarea {
 }
 #posts .deletebutton {
 	position: absolute;
-	right: 0.5em;
+	right: 0.8em;
 }
 #posts .replytext {
 	margin: 0.5em 0px 0px 3em;
@@ -217,4 +216,10 @@ input, textarea {
 #footer
 {
         text-align: center;
+}
+
+
+
+.errorpage h1, .errorpage h2 {
+	text-align: center;
 }
