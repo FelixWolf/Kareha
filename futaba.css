@@ -1,0 +1,325 @@
+/* futaba style for kareha by coda & WAHa_06x36 */
+body
+{
+	 background: #FFFFEE;
+	 color: #800000;
+}
+
+a
+{
+	color: #0000EE;
+}
+
+a:visited
+{
+	color: #0000DD;
+}
+
+a:hover
+{
+        color:#DD0000;
+}
+
+form
+{
+	margin: 0px;
+}
+
+
+
+.title
+{
+	text-align: center;
+	font-size: 2em;
+}
+
+
+
+
+.topbar
+{
+	margin: 0.3em;
+	margin-bottom: 1em;
+	text-align: right;
+	font-size: small;
+}
+
+.navbar, .managerbar, .stylebar
+{
+	background: #F0E0D6;
+	padding: 3px 0px 3px 0px;
+	margin-left: 1em;
+	border: 1px solid #800000;
+	-moz-border-radius: 4px;
+}
+
+.navtitle, .managertitle, .styletitle
+{
+	background: #EEAA88;
+	padding: 3px;
+	color: #800000;
+	-moz-border-radius: 3px 0px 0px 3px;
+}
+
+.navlink, .managerlink, .stylelink
+{
+	padding: 3px;
+}
+
+
+
+.threadarea
+{
+	background: #EEAA88;
+	color: #800000;
+	padding: 4px;
+	margin-bottom: 2em;
+	-moz-border-radius: 6px;
+	clear: both;
+}
+
+div.threadlist
+{
+	background: #F0E0D6;
+	font-family: serif;
+	margin: 3px;
+	padding: 6px;
+	margin-bottom: 7px;
+	-moz-border-radius: 4px;
+}
+
+span.threadlink
+{
+	padding-right: 0.5em;
+}
+
+a.threadlink
+{
+}
+
+span.backloglink
+{
+	text-align: right;
+	font-weight: bold;
+}
+
+div.oldthreadlist
+{
+	background: #F0E0D6;
+	font-family: serif;
+	margin: 3px;
+	padding: 6px;
+	margin-bottom: 7px;
+	-moz-border-radius: 4px;
+}
+
+span.oldthreadlink
+{
+	display: block;
+}
+
+a.oldthreadlink
+{
+	margin-right: 1em;
+}
+
+
+.oldmanagelink
+{
+	font-size: small;
+}
+
+div.threadform
+{
+	background: #F0E0D6;
+	font-family: serif;
+        color: #800000;
+        font-weight: bold;
+	margin: 3px;
+	padding: 3px;
+	-moz-border-radius: 4px;
+}
+
+input.threadform, textarea.threadform
+{
+	border: 1px solid #800000;
+}
+
+textarea.threadform
+{
+	-moz-border-radius: 4px;
+}
+
+input[type=submit].threadform
+{
+}
+
+.threadcaptcha
+{
+	color: #800000;
+}
+
+
+
+.summaryarea, .replyarea
+{
+	background: #F0E0D6;
+	padding: 4px;
+	margin-bottom: 2em;
+	-moz-border-radius: 6px;
+	clear: both;
+}
+
+.permasagearea
+{
+	background: #F0E0D6;
+	border: 3px solid #EEAA88;
+	padding: 4px;
+	margin-bottom: 2em;
+	-moz-border-radius: 6px;
+	clear: both;
+}
+
+.threadtitle
+{
+	float: left;
+	background: inherit;
+	font-size: 1.2em;
+	color: #CC1105;
+	font-weight: bold;
+	margin-left: 1em;
+}
+
+.threadnavigation
+{
+	float: right;
+}
+
+.titlepostcount
+{
+	font-weight: normal;
+}
+
+.allreplies
+{
+	clear: both;
+}
+
+.replygroup
+{
+	background: #F0E0D6;
+	color: #800000;
+	font-family: serif;
+	margin: 3px;
+	padding: 3px;
+	-moz-border-radius: 4px;
+}
+
+.reply
+{
+}
+
+.replyheader
+{
+}
+
+.replynum
+{
+	font-weight: bold;
+	margin-left: 0.3em;
+	margin-right: 0.3em;
+}
+
+.postername
+{
+	color: #117743;
+	font-weight: bold;
+}
+
+.postertrip
+{
+	color: #228854;
+}
+
+.deletedreply
+{
+	padding-bottom: 1em;
+}
+
+.deleted
+{
+	color: #AFAFAF;
+	font-weight: bold;
+}
+
+.replytext
+{
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
+	margin-left: 3em;
+}
+
+.replyabbrev
+{
+	color: #707070;
+	margin-left: 3em;
+	margin-bottom: 0.5em;
+}
+
+.quoted
+{
+	color: #789922;
+/*	background: inert;*/
+}
+
+.deletebutton
+{
+	font-size: small;
+	float: right;
+}
+
+.threadlinks
+{
+}
+
+
+
+div.postform
+{
+	background: #F0E0D6;
+	color: #800000;
+	font-family: serif;
+	margin: 3px;
+	padding: 3px;
+	-moz-border-radius: 4px;
+	font-weight:800;
+}
+
+input.postform, textarea.postform
+{
+	border: 1px solid #800000;
+}
+
+textarea.postform
+{
+	-moz-border-radius: 4px;
+}
+
+input[type=submit].postform
+{
+
+}
+
+.postcaptcha
+{
+	color: #800000;
+	margin-left: 10px;
+}
+
+
+
+.footer
+{
+        text-align: center;
+        font-size: 0.8em;
+}
