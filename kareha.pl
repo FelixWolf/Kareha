@@ -5,15 +5,15 @@ use CGI::Carp qw(fatalsToBrowser);
 use strict;
 
 use CGI;
-use MIME::Base64;
-use Digest::MD5 qw(md5 md5_hex md5_base64);
-use Encode qw(decode);
 use Data::Dumper;
+use Fcntl ':flock';
 
 use lib '.';
 BEGIN { require 'config.pl'; }
-BEGIN { require 'templates.pl'; }
 BEGIN { require 'config_defaults.pl'; }
+BEGIN { require 'templates.pl'; }
+BEGIN { require 'captcha.pl'; }
+BEGIN { require 'wakautils.pl'; }
 
 
 
@@ -21,29 +21,30 @@ BEGIN { require 'config_defaults.pl'; }
 # Global init
 #
 
-my @stylesheets=get_stylesheets();
+no strict;
+@stylesheets=get_stylesheets(); # make stylesheets visible to the templates
+use strict;
 
 my $query=new CGI;
 my $task=$query->param("task");
 
+# Rebuild main page if it doesn't exist
+unless(-e HTML_SELF)
+{
+	build_main_page();
+	upgrade_threads();
+}
+
 if(!$task)
 {
-	if($ENV{PATH_INFO})
-	{
-		show_thread($ENV{PATH_INFO});
-	}
-	else
-	{
-		unless(-e HTML_SELF)
-		{
-			build_main_page();
-			upgrade_threads();
-		}
-
-		make_http_forward(HTML_SELF);
-	}
+	if($ENV{PATH_INFO}) { show_thread($ENV{PATH_INFO}) }
+	else { make_http_forward(HTML_SELF,ALTERNATE_REDIRECT) }
+	exit 0;
 }
-elsif($task eq "post")
+
+my $log=lock_log();
+
+if($task eq "post")
 {
 	my $thread=$query->param("thread");
 	my $name=$query->param("name");
@@ -51,47 +52,72 @@ elsif($task eq "post")
 	my $title=$query->param("title");
 	my $comment=$query->param("comment");
 	my $captcha=$query->param("captcha");
-	my $key=$query->param("key");
 	my $password=$query->param("password");
+
+	my $key=$query->cookie("captchakey");
 
 	post_stuff($thread,$name,$email,$title,$comment,$captcha,$key,$password);
 }
 elsif($task eq "delete")
 {
-	my ($password,@posts);
-
-	$password=$query->param("password");
-	@posts=$query->param("delete");
+	my $password=$query->param("password");
+	my @posts=$query->param("delete");
 
 	delete_stuff($password,@posts);
 }
 elsif($task eq "deletethread")
 {
-	my ($thread,$admin);
+	die S_BADDELPASS unless($query->param("admin") eq ADMIN_PASS);
 
-	$thread=$query->param("thread");
-	$admin=$query->param("admin");
-
-	delete_thread($thread,$admin);
+	my $thread=$query->param("thread");
+	delete_thread($thread);
 }
 elsif($task eq "permasagethread")
 {
-	my ($thread,$admin);
+	die S_BADDELPASS unless($query->param("admin") eq ADMIN_PASS);
 
-	$thread=$query->param("thread");
-	$admin=$query->param("admin");
-
-	permasage_thread($thread,$admin);
+	my $thread=$query->param("thread");
+	permasage_thread($thread);
 }
+elsif($task eq "rebuild")
+{
+	die S_BADDELPASS unless($query->param("admin") eq ADMIN_PASS);
+
+	build_main_page();
+	upgrade_threads();
+}
+else
+{
+	die S_NOTASK;
+}
+
+release_log($log);
+
+make_http_forward(HTML_SELF,ALTERNATE_REDIRECT);
+
+#
+# End of main code
+#
 
 
 sub show_thread($)
 {
 	my ($path)=@_;
-
 	my ($thread,$range)=$path=~m!/([0-9]+)(.*)!;
+	my $filename=RES_DIR.$thread.PAGE_EXT;
+	my $modified=(stat $filename)[9];
 
-	my @page=read_array(RES_DIR.$thread.PAGE_EXT);
+	if($ENV{HTTP_IF_MODIFIED_SINCE})
+	{
+		my $ifmod=parse_http_date($ENV{HTTP_IF_MODIFIED_SINCE});
+		if($modified<=$ifmod)
+		{
+			print "Status: 304 Not modified\n\n";
+			return;
+		}
+	}
+
+	my @page=read_array($filename);
 	die S_NOTHREADERR unless(@page);
 
 	my $posts=@page-3;
@@ -124,11 +150,20 @@ sub show_thread($)
 	}
 
 	print "Content-Type: text/html; charset=".CHARSET."\n";
+	print "Date: ".make_date(time(),"http")."\n";
+	print "Last-Modified: ".make_date($modified,"http")."\n";
 	print "\n";
 
-	print $page[1];
-	print @page[$start+1..$end+1];
-	print $page[$#page];
+	my @replies=map { reply=>$_ },@page[$start+1..$end+1];
+
+	print THREAD_VIEW_TEMPLATE->(
+		header=>$page[1],
+		footer=>$page[$#page],
+		replies=>\@replies,
+		firstreply=>$page[2],
+		start=>$start,
+		end=>$end,
+	);
 }
 
 
@@ -166,49 +201,21 @@ sub build_main_page()
 		$$thread{prev}=($$thread{num}+(THREADS_DISPLAYED)-2)%(THREADS_DISPLAYED)+1;
 	}
 
-	write_array(HTML_SELF,make_template(MAIN_PAGE_TEMPLATE,threads=>\@threads));
-	write_array(HTML_BACKLOG,make_template(BACKLOG_PAGE_TEMPLATE,threads=>\@threads));
-	write_array(RSS_FILE,make_template(RSS_TEMPLATE,threads=>\@threads)) if(RSS_FILE);
+	write_array(HTML_SELF,MAIN_PAGE_TEMPLATE->(threads=>\@threads));
+	write_array(HTML_BACKLOG,BACKLOG_PAGE_TEMPLATE->(threads=>\@threads)) if(HTML_BACKLOG);
+	write_array(RSS_FILE,RSS_TEMPLATE->(threads=>\@threads)) if(RSS_FILE);
 }
 
 sub abbreviate_reply($)
 {
 	my ($reply)=@_;
-	my ($lines,$chars,@stack);
 
-	$reply=~m!^(.*?<div class="replytext">)(.*?)(</div>.*$)!s;
-	my ($prefix,$comment,$postfix)=($1,$2,$3);
-
-	while($comment=~m!(?:([^<]+)|<(/?)(\w+).*?(/?)>)!g)
+	if($reply=~m!^(.*?<div class="replytext">)(.*?)(</div>.*$)!s)
 	{
-		my ($text,$closing,$tag,$implicit)=($1,$2,lc($3),$4);
+		my ($prefix,$comment,$postfix)=($1,$2,$3);
 
-		if($text) { $chars+=length $text; }
-		else
-		{
-			push @stack,$tag if(!$closing and !$implicit);
-			pop @stack if($closing);
-
-			if(($closing or $implicit) and ($tag eq "p" or $tag eq "blockquote" or $tag eq "pre"
-			or $tag eq "li" or $tag eq "ol" or $tag eq "ul" or $tag eq "br"))
-			{
-				$lines+=int($chars/APPROX_LINE_LENGTH)+1;
-				$lines++ if($tag eq "p" or $tag eq "blockquote");
-				$chars=0;
-			}
-
-			if($lines>=MAX_LINES_SHOWN)
-			{
- 				# check if there's anything left other than end-tags
- 				return undef if((substr $comment,pos $comment)=~m!^(?:\s*</\w+>)*$!);
-
-				my $abbrev=$prefix.substr $comment,0,pos $comment;
-				while(my $tag=pop @stack) { $abbrev.="</$tag>" }
-				$abbrev.=$postfix;
-
-				return $abbrev;
-			}
-		}
+		my $abbrev=abbreviate_html($comment,MAX_LINES_SHOWN,APPROX_LINE_LENGTH);
+		return $prefix.$abbrev.$postfix if($abbrev);
 	}
 
 	return undef;
@@ -224,8 +231,8 @@ sub upgrade_threads()
 
 		my $num=$$thread{postcount};
 
-		$threadpage[1]=make_template(THREAD_HEAD_TEMPLATE,%{$thread});
-		$threadpage[$num+2]=make_template(THREAD_FOOT_TEMPLATE,%{$thread});
+		$threadpage[1]=THREAD_HEAD_TEMPLATE->(%{$thread});
+		$threadpage[$num+2]=THREAD_FOOT_TEMPLATE->(%{$thread});
 
 		write_array($$thread{filename},@threadpage);
 	}
@@ -272,12 +279,17 @@ sub post_stuff($$$$$$$)
 	# check captcha
 	if(ENABLE_CAPTCHA)
 	{
-		die S_BADCAPTCHA if($captcha ne make_word($key));
-		die S_BADCAPTCHA if(add_key($key));
+		die S_BADCAPTCHA if(find_key($log,$key));
+		die S_BADCAPTCHA if(!check_captcha($key,$captcha));
 	}
 
 	# proxy check
 #	proxy_check($ip) unless($whitelisted);
+
+	# spam check
+	die S_SPAM if(spam_check($comment,SPAM_FILE));
+	die S_SPAM if(spam_check($title,SPAM_FILE));
+	die S_SPAM if(spam_check($name,SPAM_FILE));
 
 	# check if thread exists
 	die S_NOTHREADERR if($thread and !-e RES_DIR.$thread.PAGE_EXT);
@@ -295,20 +307,20 @@ sub post_stuff($$$$$$$)
 		else { $email=''; }
 	}
 
-	# process the tripcode
-	($name,$trip)=process_tripcode($name);
-
 	# clean up the inputs
 	$name=clean_string($name);
 	$email=clean_string($email);
 	$title=clean_string($title);
 	$comment=clean_string($comment);
 
+	# process the tripcode
+	($name,$trip)=process_tripcode($name,TRIPKEY,SECRET);
+
 	# insert default values for empty fields
 	$name=make_anonymous($ip,$time) unless($name or $trip);
 
 	# create the thread if we are starting a new one
-	$thread=make_thread($title,$time,$name.TRIPKEY.$trip) unless($thread);
+	$thread=make_thread($title,$time,$name.$trip) unless($thread);
 
 	# format the comment
 	$comment=format_comment($comment,$thread);
@@ -320,45 +332,20 @@ sub post_stuff($$$$$$$)
 	$date.=' ID:'.make_id_code($ip,$time,$email) if(DISPLAY_ID);
 
 	# add the reply to the thread
-	make_reply(ip=>$ip,thread=>$thread,name=>$name,trip=>$trip,email=>$email,
-	time=>$time,date=>$date,comment=>$comment,password=>$password);
+	my $num=make_reply(ip=>$ip,thread=>$thread,name=>$name,trip=>$trip,email=>$email,
+	time=>$time,date=>$date,comment=>$comment);
+
+	# make entry in the log
+	add_log($log,$thread,$num,$password,$ip,$key,'');
 
 	# remove old threads from the database
 	trim_threads() unless($thread);
 
 	build_main_page();
 
-	# set the name, email and password cookies
-	make_cookies(name=>$c_name,email=>$c_email,password=>$c_password); # yum!
-
-	# forward back to the main page
-	make_http_forward(HTML_SELF);
-}
-
-sub make_word($)
-{
-	my ($key)=@_;
-
-	srand unpack "N",md5(SECRET.$key);
-
-	return cfg_expand("%W%",
-		W => ["%C%%T%","%C%%T%","%C%%X%","%C%%D%%F%","%C%%V%%F%%T%","%C%%D%%F%%U%","%C%%T%%U%","%I%%T%","%I%%C%%T%","%A%"],
-		A => ["%K%%V%%K%%V%tion"],
-		K => ["b","c","d","f","g","j","l","m","n","p","qu","r","s","t","v","s%P%"],
-		I => ["ex","in","un","re","de"],
-		T => ["%V%%F%","%V%%E%e"],
-		U => ["er","ish","ly","en","ing","ness","ment","able","ive"],
-		C => ["b","c","ch","d","f","g","h","j","k","l","m","n","p","qu","r","s","sh","t","th","v","w","y","s%P%","%R%r","%L%l"],
-		E => ["b","c","ch","d","f","g","dg","l","m","n","p","r","s","t","th","v","z"],
-		F => ["b","tch","d","ff","g","gh","ck","ll","m","n","n","ng","p","r","ss","sh","t","tt","th","x","y","zz","r%R%","s%P%","l%L%"],
-		P => ["p","t","k","c"],
-		Q => ["b","d","g"],
-		L => ["b","f","k","p","s"],
-		R => ["%P%","%Q%","f","th","sh"],
-		V => ["a","e","i","o","u"],
-		D => ["aw","ei","ow","ou","ie","ea","ai","oy"],
-		X => ["e","i","o","aw","ow","oy"]
-	);
+	# set the name, email and password cookies, plus a new captcha key
+	make_cookies(name=>$c_name,email=>$c_email,password=>$c_password,
+	captchakey=>make_random_string(8),-charset=>CHARSET,-autopath=>COOKIE_PATH); # yum!
 }
 
 sub proxy_check($)
@@ -370,60 +357,6 @@ sub proxy_check($)
 		# needs to be implemented
 		# die sprintf S_PROXY,$port);
 	}
-}
-
-sub process_tripcode($)
-{
-	my ($name,$hash)=@_;
-
-	if($name=~/^([^\#!]*)[\#!](.*)$/)
-	{
-		my ($namepart,$trippart)=($1,$2);
-		my ($normtrip,$sectrip,$trip);
-
-		if($trippart=~/^([^\#!]*)[\#!]+(.*)$/) { $normtrip=$1; $sectrip=$2; }
-		else { $normtrip=$trippart; }
-
-		if($normtrip)
-		{
-			my $salt;
-			($salt)=($normtrip."H.")=~/^.(..)/;
-			$salt=~s/[^\.-z]/./g;
-			$salt=~tr/:;<=>?@[\\]^_`/ABCDEFGabcdef/; 
-			$trip.=substr crypt($normtrip,$salt),-10;
-		}
-
-		if($sectrip)
-		{
-			$trip.=TRIPKEY if($normtrip);
-			$trip.=TRIPKEY.substr md5_base64(SECRET.$sectrip),0,8;
-		}
-
-		return ($namepart,$trip);
-	}
-
-	return ($name,"");
-}
-
-
-sub clean_string($)
-{
-	my ($str)=@_;
-
-	# $str=~s/^\s*//; # remove preceeding whitespace
-	# $str=~s/\s*$//; # remove traling whitespace
-
-	$str=~s/&/&amp;/g;
-	$str=~s/\</&lt;/g;
-	$str=~s/\>/&gt;/g;
-	$str=~s/"/&quot;/g; #"
-	$str=~s/'/&#039;/g;
-	$str=~s/,/&#44;/g;
-
-	# repair unicode entities
-	$str=~s/&amp;(\#[0-9]+;)/&$1/g;
-
-	return $str;
 }
 
 sub format_comment($$)
@@ -445,8 +378,8 @@ sub format_comment($$)
 	};
 
 	my @lines=split /\n/,$comment;
-	if(ENABLE_WAKABAMARK) { $comment=do_blocks($handler,0,@lines) }
-	else { $comment="<p>".do_spans($handler,@lines)."</p>" }
+	if(ENABLE_WAKABAMARK) { $comment=do_wakabamark($handler,0,@lines) }
+	else { $comment="<p>".simple_format($handler,@lines)."</p>" }
 
 	# restore >>1 references hidden in code blocks
 	$comment=~s/&gtgt;/&gt;&gt;/g;
@@ -454,83 +387,17 @@ sub format_comment($$)
 	return $comment;
 }
 
-sub do_blocks($@)
-{
-	my ($handler,$simplify,@lines)=@_;
-	my $res;
-
-	while(defined($_=$lines[0]))
-	{
-		if(/^\s*$/) { shift @lines; } # skip empty lines
-		elsif(/^(1\.|[\*\+\-]) .*/) # lists
-		{
-			my ($tag,$re,$html);
-
-			if($1 eq "1.") { $tag="ol"; $re=qr/[0-9]+\./; }
-			else { $tag="ul"; $re=qr/\Q$1\E/; }
-
-			while($lines[0]=~/^($re)(?: |\t)(.*)/)
-			{
-				my $spaces=(length $1)+1;
-				my @item=($2);
-				shift @lines;
-
-				while($lines[0]=~/^(?: {1,$spaces}|\t)(.*)/) { push @item,$1; shift @lines }
-				$html.="<li>".do_blocks($handler,1,@item)."</li>";
-			}
-			$res.="<$tag>$html</$tag>";
-		}
-		elsif(/^(?:    |\t).*/) # code sections
-		{
-			my @code;
-			while($lines[0]=~/^(?:    |\t)(.*)/) { push @code,$1; shift @lines; }
-			$res.="<pre><code>".(join "<br />",@code)."</code></pre>";
-		}
-		elsif(/^&gt;.*/) # quoted sections
-		{
-			my @quote;
-			while($lines[0]=~/^(&gt;.*)/) { push @quote,$1; shift @lines; }
-			$res.="<blockquote>".do_spans($handler,@quote)."</blockquote>";
-
-			#while($lines[0]=~/^&gt;(.*)/) { push @quote,$1; shift @lines; }
-			#$res.="<blockquote>".do_blocks($handler,@quote)."</blockquote>";
-		}
-		else # normal paragraph
-		{
-			my @text;
-			while($lines[0]!~/^(?:\s*$|1\. |[\*\+\-] |&gt;|    |\t)/) { push @text,shift @lines; }
-			if(!defined($lines[0]) and $simplify) { $res.=do_spans($handler,@text) }
-			else { $res.="<p>".do_spans($handler,@text)."</p>" }
-		}
-		$simplify=0;
-	}
-	return $res;
-}
-
-sub do_spans($@)
+sub simple_format($@)
 {
 	my $handler=shift;
 	return join "<br />",map
 	{
 		my $line=$_;
-		my @codespans;
-
-		# hide <code> sections
-		$line=~s{(`+)([^<>]+?)\1}{push @codespans,$2; "<code></code>"}ge if(ENABLE_WAKABAMARK);
 
 		# make URLs into links
 		$line=~s{(https?://[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:[\s<>"]|$))}{\<a href="$1"\>$1\</a\>$2}sgi;
 
-		# do <strong>
-		$line=~s{([^0-9a-zA-Z\*_]|^)(\*\*|__)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2(?=[^0-9a-zA-Z\*_]|$)}{$1<strong>$3</strong>}g if(ENABLE_WAKABAMARK);
-
-		# do <em>
-		$line=~s{([^0-9a-zA-Z\*_]|^)(\*|_)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2(?=[^0-9a-zA-Z\*_]|$)}{$1<em>$3</em>}g if(ENABLE_WAKABAMARK);
-
 		$line=$handler->($line) if($handler);
-
-		# fix up <code> sections
-		$line=~s{<code></code>}{"<code>".(shift @codespans)."</code>"}ge if(ENABLE_WAKABAMARK);
 
 		$line;
 	} @_;
@@ -542,11 +409,9 @@ sub make_anonymous($$)
 
 	return S_ANONAME unless(SILLY_ANONYMOUS);
 
-	my @gmt=gmtime $time+9*60*60; # weird time offset copied from futaba
-	my $date=sprintf '%04d%02d%02d',$gmt[5]+1900,$gmt[4]+1,$gmt[3];
-
-	srand unpack "N",md5(SECRET.$ip) if(SILLY_ANONYMOUS==1);
-	srand unpack "N",md5(SECRET.$ip.$date) if(SILLY_ANONYMOUS==2);
+	my $day=int(($time+9*60*60)/86400); # weird time offset copied from futaba
+	srand unpack "N",rc4(null_string(4),"s".$ip.SECRET) if(SILLY_ANONYMOUS==1);
+	srand unpack "N",rc4(null_string(4),"s".$ip.$day.SECRET) if(SILLY_ANONYMOUS==2);
 
 	return cfg_expand("%G% %W%",
 		W => ["%B%%V%%M%%I%%V%%F%","%B%%V%%M%%E%","%O%%E%","%B%%V%%M%%I%%V%%F%","%B%%V%%M%%E%","%O%%E%","%B%%V%%M%%I%%V%%F%","%B%%V%%M%%E%"],
@@ -561,34 +426,14 @@ sub make_anonymous($$)
 	);
 }
 
-sub make_date($)
-{
-	my ($time,$style)=@_;
-
-	if($style==0)
-	{
-		my @ltime=localtime($time);
-
-		return sprintf("%04d-%02d-%02d %02d:%02d",
-		$ltime[5]+1900,$ltime[4]+1,$ltime[3],$ltime[2],$ltime[1]);
-	}
-	elsif($style==1)
-	{
-		return scalar(localtime($time));
-	}
-}
-
 sub make_id_code($$$)
 {
 	my ($ip,$time,$email)=@_;
 
 	return EMAIL_ID if($email and DISPLAY_ID==1);
 
-	my @gmt=gmtime $time+9*60*60; # weird time offset copied from futaba
-	my $date=sprintf '%04d%02d%02d',$gmt[5]+1900,$gmt[4]+1,$gmt[3];
-
-	return substr(md5_base64(SECRET.$ip.$date),-8) if(SECURE_ID);
-	return substr(crypt(md5_hex($ip.'id'.$date),'id'),-8);
+	my $day=int(($time+9*60*60)/86400); # weird time offset copied from futaba
+	return encode_base64(rc4(null_string(6),"i".$ip.$day.SECRET),"");
 }
 
 sub make_reply(%)
@@ -607,15 +452,14 @@ sub make_reply(%)
 	$meta{lasthit}=$vars{time} unless($vars{email}=~/sage/i or $meta{postcount}>=MAX_RES or $meta{permasage}); # bump unless sage, too many replies, or permasage
 
 	$page[0]=make_meta_header(%meta);
-	$page[1]=make_template(THREAD_HEAD_TEMPLATE,%meta,thread=>$vars{thread});
-	$page[$num+1]=make_template(REPLY_TEMPLATE,%vars,num=>$num);
-	$page[$num+2]=make_template(THREAD_FOOT_TEMPLATE,%meta,thread=>$vars{thread});
+	$page[1]=THREAD_HEAD_TEMPLATE->(%meta,thread=>$vars{thread});
+	$page[$num+1]=REPLY_TEMPLATE->(%vars,num=>$num);
+	$page[$num+2]=THREAD_FOOT_TEMPLATE->(%meta,thread=>$vars{thread});
 
 	write_array($filename,@page);
 
-	add_log($vars{thread},$num,$vars{password},$vars{ip});
+	return $num;
 }
-
 
 sub make_thread($$$)
 {
@@ -648,8 +492,6 @@ sub delete_stuff($@)
 	}
 
 	build_main_page();
-
-	make_http_forward(HTML_SELF);
 }
 
 sub trim_threads()
@@ -669,11 +511,9 @@ sub trim_threads()
 sub delete_post($$$)
 {
 	my ($thread,$post,$password)=@_;
-	my $logpass=find_password($thread,$post);
-	my $encpass=encode_password($password);
 
 	die S_BADDELPASS unless($password);
-	die S_BADDELPASS unless($password eq ADMIN_PASS or $encpass eq $logpass);
+	die S_BADDELPASS unless($password eq ADMIN_PASS or match_password($log,$thread,$post,$password));
 
 	my $reason;
 	if($password eq ADMIN_PASS) { $reason="mod"; }
@@ -683,30 +523,33 @@ sub delete_post($$$)
 	my @page=read_array($filename);
 	return unless(@page);
 
-	@page[$post+1]=make_template(DELETED_TEMPLATE,num=>$post,reason=>$reason);
-
-	write_array($filename,@page);
+	my %meta=parse_meta_header($page[0]);
+	if($post==1 and $meta{postcount}==1)
+	{
+		delete_thread($thread);
+	}
+	else
+	{
+		@page[$post+1]=DELETED_TEMPLATE->(num=>$post,reason=>$reason);
+		write_array($filename,@page);
+	}
 }
 
-sub delete_thread($$)
+sub delete_thread($)
 {
-	my ($thread,$admin)=@_;
+	my ($thread)=@_;
 
-	die S_BADDELPASS unless($admin eq ADMIN_PASS);
 	die S_UNUSUAL if($thread=~/[^0-9]/); # check to make sure the thread argument is safe
 
 	unlink RES_DIR.$thread.PAGE_EXT;
 
 	build_main_page();
-
-	make_http_forward(HTML_SELF);
 }
 
-sub permasage_thread($$)
+sub permasage_thread($)
 {
-	my ($thread,$admin)=@_;
+	my ($thread)=@_;
 
-	die S_BADDELPASS unless($admin eq ADMIN_PASS);
 	die S_UNUSUAL if($thread=~/[^0-9]/); # check to make sure the thread argument is safe
 
 	my $filename=RES_DIR.$thread.PAGE_EXT;
@@ -719,10 +562,39 @@ sub permasage_thread($$)
 	write_array($filename,@page);
 
 	build_main_page();
-
-	make_http_forward(HTML_SELF);
 }
 
+
+
+#
+# Utility funtions
+#
+
+sub get_stylesheets()
+{
+	my $found=0;
+	my @stylesheets=map
+	{
+		my %sheet;
+
+		$sheet{filename}=$_;
+
+		($sheet{title})=m!([^/]+)\.css$!i;
+		$sheet{title}=ucfirst $sheet{title};
+		$sheet{title}=~s/_/ /g;
+		$sheet{title}=~s/ ([a-z])/ \u$1/g;
+		$sheet{title}=~s/([a-z])([A-Z])/$1 $2/g;
+
+		if($sheet{title} eq DEFAULT_STYLE) { $sheet{default}=1; $found=1; }
+		else { $sheet{default}=0; }
+
+		\%sheet;
+	} glob(CSS_DIR."*.css");
+
+	$stylesheets[0]{default}=1 if(@stylesheets and !$found);
+
+	return @stylesheets;
+}
 
 
 
@@ -772,254 +644,233 @@ sub make_meta_header(%)
 	return '<!-- '.Dumper(\%meta).' -->';
 }
 
-sub find_password($$)
+sub match_password($$$$)
 {
-	my ($thread,$post)=@_;
+	my ($log,$thread,$post,$password)=@_;
+	my $encpass=encode_password($password);
 
-	foreach(read_log())
+	foreach(@{$log})
 	{
 		my @data=split /\s*,\s*/;
-		return $data[2] if($data[0]==$thread and $data[1]==$post);
+		return 1 if($data[0]==$thread and $data[1]==$post and $data[2] eq $encpass);
 	}
-	return undef;
+	return 0;
 }
 
-sub add_log($$$$)
+sub find_key($$)
 {
-	my ($thread,$post,$password,$ip)=@_;
+	my ($log,$key)=@_;
+
+	foreach(@{$log})
+	{
+		my @data=split /\s*,\s*/;
+		return 1 if($data[4] eq $key);
+	}
+	return 0;
+}
+
+sub lock_log()
+{
+	open LOGFILE,"+>>log.txt" or die S_NOLOG;
+	flock LOGFILE,LOCK_EX;
+	seek LOGFILE,0,0;
+
+	my @log=grep { /^([0-9]+)/; -e RES_DIR.$1.PAGE_EXT } read_array(\*LOGFILE);
+
+	# should remove MD5 for deleted files somehow
+	return \@log;
+}
+
+sub release_log(;$)
+{
+	my ($log)=@_;
+
+	if($log)
+	{
+		seek LOGFILE,0,0;
+		truncate LOGFILE,0;
+		write_array(\*LOGFILE,@$log);
+	}
+
+	close LOGFILE;
+}
+
+sub add_log($$$$$$$)
+{
+	my ($log,$thread,$post,$password,$ip,$key,$md5)=@_;
 
 	$password=encode_password($password);
 	$ip=encode_ip($ip);
 
-	my @log=read_log();
-	unshift @log,"$thread,$post,$password,$ip";
-	write_log(@log);
+	unshift @$log,"$thread,$post,$password,$ip,$key,$md5";
 }
 
-sub add_key($)
-{
-	my ($key)=@_;
-
-	my @keys=read_keys();
-	return 1 if(grep { $key eq $_ } @keys);
-	push @keys,$key;
-	@keys=splice @keys,-(MAX_KEY_LOG) if(@keys>=MAX_KEY_LOG);
-	write_keys(@keys);
-
-	return 0;
-}
-
-sub read_log() { return grep { /^([0-9]+)/; -e RES_DIR.$1.PAGE_EXT } read_array("log.txt"); }
-sub write_log(@) { write_array("log.txt",@_); }
-sub read_keys() { read_array("keys.txt"); }
-sub write_keys(@) { write_array("keys.txt",@_); }
-
-sub read_array($)
-{
-	my ($filename)=@_;
-	my @array;
-
-	if(open FILE,$filename)
-	{
-		@array=<FILE>;
-		chomp @array;
-		close FILE;
-	}
-	return @array;
-}
-
-sub write_array($)
-{
-	my ($filename,@array)=@_;
-
-	open FILE,">$filename" or die S_NOTWRITE;
-	print FILE join "\n",@array;
-	close FILE;
-}
-
-sub encode_password($) { return substr md5_base64(SECRET.$_[0]),0,8; }
-sub encode_ip($) { my $iv=make_iv(); return $iv.'!'.encode_base64(rc4($_[0],md5(SECRET.$iv)),''); }
-
-sub make_iv()
-{
-	my $iv;
-	my $chars="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-	$iv.=substr $chars,rand length $chars,1 for(0..7);
-
-	return $iv;
-}
-
-sub rc4($$)
-{
-	my ($message,$key)=@_;
-
-	my @k=unpack 'C*',$key;
-	my @s=0..255;
-	my $y=0;
-	for my $x (0..255)
-	{
-		$y=($k[$x%@k]+$s[$x]+$y)%256;
-		@s[$x,$y]=@s[$y,$x];
-	}
-
-	my $x,$y;
-
-	my @message=unpack 'C*',$message;
-	for(@message)
-	{
-		$x=($x+1)%256;
-		$y=($y+$s[$x])%256;
-		@s[$x,$y]=@s[$y,$x];
-		$_^=$s[($s[$x]+$s[$y])%256];
-	}
-	return pack 'C*',@message;
-}
-
-sub cfg_expand($%)
-{
-	my ($str,%grammar)=@_;
-	$str=~s/%(\w+)%/
-		my @expansions=@{$grammar{$1}};
-		cfg_expand($expansions[rand @expansions],%grammar);
-	/ge;
-	return $str;
-}
-
-sub get_stylesheets()
-{
-	my $found=0;
-	my @stylesheets=map
-	{
-		my %sheet;
-
-		$sheet{filename}=$_;
-
-		($sheet{title})=m!([^/]+)\.css$!i;
-		$sheet{title}=ucfirst $sheet{title};
-		$sheet{title}=~s/_/ /g;
-		$sheet{title}=~s/ ([a-z])/ \u$1/g;
-		$sheet{title}=~s/([a-z])([A-Z])/$1 $2/g;
-
-		if($sheet{title} eq DEFAULT_STYLE) { $sheet{default}=1; $found=1; }
-		else { $sheet{default}=0; }
-
-		\%sheet;
-	} glob(CSS_DIR."*.css");
-
-	$stylesheets[0]{default}=1 if(@stylesheets and !$found);
-
-	return @stylesheets;
-}
+sub encode_password($) { return encode_base64(rc4(null_string(6),"p".(shift).SECRET),""); }
+sub encode_ip($) { my $iv=make_random_string(8); return $iv.':'.encode_base64(rc4($_[0],"l".$iv.SECRET),""); }
 
 
 
 #
-# Page creation utils
+# Image handling
 #
 
-sub make_template($%)
+my $comment=q[
+
+sub get_file_size($)
 {
-	my ($src,%vars)=@_;
-	my ($self_path)=$ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;
+	my ($file)=@_;
+	my (@filestats,$size);
 
-	$src=~s/\s+/ /sg;
-	$src=~s/^\s+//;
-	$src=~s/\s+$//;
+	@filestats=stat $file;
+	$size=$filestats[7];
 
-	my $port=$ENV{SERVER_PORT}==80?"":":$ENV{SERVER_PORT}";
-	$vars{self}=$ENV{SCRIPT_NAME};
-	$vars{absolute_self}="http://$ENV{SERVER_NAME}$port$ENV{SCRIPT_NAME}";
-	$vars{path}=$self_path;
-	$vars{absolute_path}="http://$ENV{SERVER_NAME}$port$self_path";
+#	make_error(S_TOOBIG) if($size>MAX_KB*1024);
+#	make_error(S_TOOBIGORNONE) if($size==0); # check for small files, too?
 
-	my $res=expand_template($src,%vars);
-
-	$res=~s/\n/ /sg;
-
-	return $res;
+	return($size);
 }
 
-sub expand_template($%)
+sub process_file($$)
 {
-	my ($str,%vars)=@_;
-	my ($vardefs,$blocks,$singles);
+	my ($file,$time)=@_;
+	my ($md5,$md5ctx,$buffer,$thumbnail,$tn_width,$tn_height);
+	my %filetypes=FILETYPES;
 
-	$vardefs.="my \$$_=\$vars{$_};" for(keys %vars);
+	# make sure to read file in binary mode on platforms that care about such things
+	binmode $file;
 
-	$blocks=qr(
-		\<(if|loop)(?:|\s+([^\>]*))\>
-		((?:
-			(?>[^\<]+)
-		|
-			\<(?!/?(?:if|loop)(?:|\s+[^\>]*)\>)
-		|
-			(??{$blocks})
-		)*)
-		\</(?:\1)\>
-	)x;
-	$singles=qr(\<(var)(?:|\s+(.*?)/?)\>);
+	# analyze file and check that it's in a supported format
+	my ($ext,$width,$height)=analyze_image($file);
 
-	$str=~s/(?:$blocks|$singles)/
-		my ($btag,$barg,$bdata,$stag,$sarg)=($1,$2,$3,$4,$5);
+	# do we know about this file type?
+	my $known=$width or $filetypes{$ext};
 
-		if($stag eq 'var')
-		{
-			eval $vardefs.$sarg;
-		}
-		elsif($btag eq 'if')
-		{
-			eval $vardefs.$barg ? expand_template($bdata,%vars) : '';
-		}
-		elsif($btag eq 'loop')
-		{
-			join '',map { expand_template($bdata,(%vars,%$_)) } @{eval $vardefs.$barg};
-		}
-	/sge;
+	make_error(S_BADFORMAT) unless($known or ALLOW_UNKNOWN);
+	make_error(S_BADFORMAT) if(grep { $_ eq $ext } FORBIDDEN_EXTENSIONS);
+	make_error(S_TOOBIG) if(MAX_IMAGE_WIDTH and $width>MAX_IMAGE_WIDTH);
+	make_error(S_TOOBIG) if(MAX_IMAGE_HEIGHT and $height>MAX_IMAGE_HEIGHT);
+	make_error(S_TOOBIG) if(MAX_IMAGE_PIXELS and $width*$height>MAX_IMAGE_PIXELS);
 
-	return $str;
-}
+	# munge names of unknown types
+	$ext.=MUNGE_UNKNOWN unless($known);
 
-sub make_http_forward($)
-{
-	my ($location)=@_;
+	my $filebase=$time.sprintf("%03d",rand(1000));
+	my $filename=IMG_DIR.$filebase.'.'.$ext;
 
-	if(ALTERNATE_REDIRECT)
+	# prepare MD5 checksum if the Digest::MD5 module is available
+	$md5ctx=Digest::MD5->new if($has_md5);
+
+	# copy file
+	open OUTFILE,">>$filename" or make_error(S_NOTWRITE);
+	binmode OUTFILE;
+	while(read $file,$buffer,1024) # should the buffer be larger?
 	{
-		print "Content-Type: text/html\n";
-		print "\n";
-		print "<html><head>";
-		print '<meta http-equiv="refresh" content="0; url='.$location.'" />';
-		print '<script type="text/javascript">document.location="'.$location.'";</script>';
-		print '</head><body><a href="'.$location.'">'.$location.'</a></body></html>';
+		print OUTFILE $buffer;
+		$md5ctx->add($buffer) if($md5ctx);
+	}
+	close $file;
+	close OUTFILE;
+
+	if($md5ctx) # if we have Digest::MD5, get the checksum
+	{
+		$md5=$md5ctx->hexdigest();
+	}
+	else # try using the md5sum command
+	{
+		my $md5sum=`md5sum $filename`;
+		($md5)=$md5sum=~/^([0-9a-f]+)/ unless($?);
+	}
+
+	if($md5) # if we managed to generate an md5 checksum, check for duplicate files
+	{
+		my $match;
+#		my $sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." WHERE md5=?;") or make_error(S_SQLFAIL);
+#		$sth->execute($md5) or make_error(S_SQLFAIL);
+#
+#		if($match=$sth->fetchrow_hashref())
+#		{
+#			unlink $filename; # make sure to remove the file
+#			make_error(sprintf(S_DUPE,get_reply_link($$match{num},$$match{parent})));
+#		}
+	}
+
+	# thumbnail
+
+	$thumbnail=THUMB_DIR.$filebase."s.jpg";
+
+	if(!$width) # not an image file
+	{
+		if($filetypes{$ext}) # externally defined filetype
+		{
+			my ($tn_ext);
+
+			open THUMBNAIL,$filetypes{$ext};
+			binmode THUMBNAIL;
+			($tn_ext,$tn_width,$tn_height)=analyze_image(\*THUMBNAIL);
+			close THUMBNAIL;
+
+			# was that icon file really there?
+			if(!$tn_width) { $thumbnail=undef }
+			else { $thumbnail=$filetypes{$ext} }
+#				$thumbnail=THUMB_DIR.$filebase."_s.".$tn_ext;
+#				make_error(S_NOTWRITE) unless(copy($filetypes{$ext},$thumbnail));
+		}
+		else
+		{
+			$thumbnail=undef;
+		}
+	}
+	elsif($width<=MAX_W and $height<=MAX_H) # small enough to display
+	{
+		$tn_width=$width;
+		$tn_height=$height;
+
+		if(THUMBNAIL_SMALL and !STUPID_THUMBNAILING)
+		{
+			if(make_thumbnail($filename,$thumbnail,$tn_width,$tn_height))
+			{
+				if(-s $thumbnail >= -s $filename) # is the thumbnail larger than the original image?
+				{
+					unlink $thumbnail;
+					$thumbnail=$filename;
+				}
+			}
+			else { $thumbnail=undef; }
+		}
+		else { $thumbnail=$filename; }
 	}
 	else
 	{
-		print "Status: 301 Go West\n";
-		print "Location: $location\n";
-		print "Content-Type: text/html\n";
-		print "\n";
-		print '<html><body><a href="'.$location.'">'.$location.'</a></body></html>';
+		$tn_width=MAX_W;
+		$tn_height=int(($height*(MAX_W))/$width);
+
+		if($tn_height>MAX_H)
+		{
+			$tn_width=int(($width*(MAX_H))/$height);
+			$tn_height=MAX_H;
+		}
+
+		if(STUPID_THUMBNAILING) { $thumbnail=$filename }
+		else
+		{
+			$thumbnail=undef unless(make_thumbnail($filename,$thumbnail,$tn_width,$tn_height));
+		}
 	}
-}
 
-sub make_cookies(%)
-{
-	my (%cookies)=@_;
-	my ($cookie);
 
-	foreach my $name (keys %cookies)
+	if($filetypes{$ext}) # externally defined filetype - keep the name
 	{
-		my $value=defined($cookies{$name})?$cookies{$name}:'';
-		$value=decode(CHARSET,$value);
-		$value=join '',map { my $c=ord($_); sprintf($c>255?'%%u%04x':'%%%02x',$c); } split //,$value;
+		$filebase=$file;
+		$filebase=~s!^.*[\\/;`]!!; # cut off any directory or shell attack in filename
+		$filename=IMG_DIR.$filebase;
 
-		my $cookie=$query->cookie(-name=>$name,
-		                          -value=>$value,
-		                          -expires=>'+14d');
-
-		$cookie=~s/%25/%/g; # repair encoding damage
-
-		print "Set-Cookie: $cookie\n";
+		make_error(S_DUPENAME) if(-e $filename); # verify no name clash
 	}
+	else # generate random filename - fudges the microseconds
+	{
+
+
+	return($filename,$md5,$width,$height,$thumbnail,$tn_width,$tn_height);
 }
+
+];

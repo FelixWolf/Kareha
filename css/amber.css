@@ -96,13 +96,13 @@ input, textarea {
 
 #posts {
 }
-#posts .summary, #posts .thread {
+#posts .thread {
 	border: 3px double #FF7F00;
 	padding: 0px;
 	margin-bottom: 2em;
 	clear: both;
 }
-#posts .sagesummary, #posts .sagethread {
+#posts .sagethread {
 	border: 1px solid #FF7F00;
 	padding: 0px;
 	margin-bottom: 2em;
@@ -145,6 +145,7 @@ input, textarea {
 	margin: 6px 6px 1em 6px;
 }
 #posts h3 {
+	position: relative;
 	font-size: 1em;
 	font-weight: normal;
 	margin: 0px;
@@ -168,9 +169,8 @@ input, textarea {
 #posts h3 .postertrip {
 }
 #posts .deletebutton {
-	float: right;
-	position: relative;
-	top: -1.3em;
+	position: absolute;
+	right: 0.5em;
 }
 #posts .replytext {
 	margin: 0.5em 0px 0px 3em;

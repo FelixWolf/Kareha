@@ -28,14 +28,18 @@
 
 # Captcha
 #use constant ENABLE_CAPTCHA => 0;			# Enable verification codes (0: disabled, 1: enabled)
+#use constant CAPTCHA_HEIGHT => 18;				# Approximate height of captcha image
+#use constant CAPTCHA_SCRIBBLE => 0.2;			# Scribbling factor
+#use constant CAPTCHA_SCALING => 0.15;			# Randomized scaling factor
+#use constant CAPTCHA_ROTATION => 0.3;			# Randomized rotation factor
+#use constant CAPTCHA_SPACING => 2.5;			# Letter spacing
 
 # Tweaks
 #use constant CHARSET => 'utf-8';			# Character set to use, typically "utf-8" or "shift_jis". Remember to set Apache to use the same character set for .html files! (AddCharset shift_jis html)
 #use constant PROXY_CHECK => ();			# Ports to scan for proxies - NOT IMPLEMENTED.
 #use constant TRIM_METHOD => 1;				# Which threads to trim (0: oldest - like futaba 1: least active - furthest back)
-#use constant DATE_STYLE => 0;				# Date style (0: 2ch-style 1: localtime)
+#use constant DATE_STYLE => '2ch';			# Date style ('2ch', 'localtime, 'http')
 #use constant DISPLAY_ID => 1;				# Display user IDs (0: never, 1: if no email, 2:always)
-#use constant SECURE_ID => 1;				# Use secure IDs instead of 2ch-style IDs.
 #use constant EMAIL_ID => 'Heaven';			# ID string to use when DISPLAY_ID is 1 and the user uses an email.
 #use constant SILLY_ANONYMOUS => 0;			# Make up silly names for anonymous people (0: please don't, 1: based on IP, 2: based on IP and date)
 #use constant FORCED_ANON => 0;				# Force anonymous posting (0: no, 1: yes)
@@ -43,6 +47,7 @@
 #use constant ALTERNATE_REDIRECT => 0;		# Use alternate redirect method. (Javascript/meta-refresh instead of HTTP forwards.)
 #use constant ENABLE_WAKABAMARK => 1;		# Enable WakabaMark formatting. (0: no, 1: yes)
 #use constant APPROX_LINE_LENGTH => 150;	# Approximate line length used by reply abbreviation code to guess at the length of a reply.
+#use constant COOKIE_PATH => 'root';		# Path argument for cookies ('root': cookies apply to all boards on the site, 'current': cookies apply only to this board, 'parent': cookies apply to all boards in the parent directory)
 
 # Internal paths and files - might as well leave this alone.
 #use constant RES_DIR => 'res/';				# Reply cache directory (needs to be writeable by the script)
@@ -51,5 +56,6 @@
 #use constant RSS_FILE => 'index.rss';			# RSS file. Set to '' to disable RSS support.
 #use constant CSS_DIR => 'css/';				# CSS file directory
 #use constant PAGE_EXT => '.html';				# Extension used for board pages after first
+#use constant SPAM_FILE => 'spam.txt';			# Spam definitions. Hint: set all boards to use the same file for easy updating.
 
 1;

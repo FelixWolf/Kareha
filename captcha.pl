@@ -5,23 +5,14 @@ use CGI::Carp qw(fatalsToBrowser);
 use strict;
 
 use CGI;
-use Digest::MD5 qw(md5);
-use List::Util qw(max);
 
 use lib '.';
 BEGIN { require "config.pl"; }
+BEGIN { require "config_defaults.pl"; }
+BEGIN { require "wakautils.pl"; }
 
 
-
-
-my $pic_height=18;
-my $scribble=0.2;
-my $scale_rand=0.15;
-my $rot_rand=0.3;
-my $spacing=2.5;
-my @background=(0xff,0xff,0xff);
-my @foreground=(0x00,0x00,0x00);
-
+return 1 if(caller);
 
 my $font_height=8;
 my %font=(
@@ -56,10 +47,23 @@ my %font=(
 
 
 my $query=new CGI;
-my $key=$query->param("key");
-my $color=$query->param("color");
+my $key=$query->cookie("captchakey");
+my $selector=($query->param("selector") or ".captcha");
+my $style=($query->cookie("karehastyle") or DEFAULT_STYLE);
 
-@foreground=parse_colour($color) if($color);
+my @foreground=find_stylesheet_color($style,$selector);
+my @background=(0xff,0xff,0xff);
+
+if(!$key)
+{
+	$key=encode_base64(rc4(null_string(6),"k".$ENV{REMOTE_ADDR}.int(time()/60).SECRET),"");
+	my $cookie=$query->cookie(-name=>"captchakey",
+	                          -value=>$key,
+	                          -expires=>'+14d');
+	print "Set-Cookie: $cookie\n";
+}
+
+
 
 my $word=make_word($key);
 
@@ -78,6 +82,12 @@ make_image($word);
 #
 # Code generation
 #
+
+sub check_captcha($$)
+{
+	my ($key,$captcha)=@_;
+	return $captcha eq make_word($key);
+}
 
 sub make_word($)
 {
@@ -101,7 +111,7 @@ sub make_word($)
 		X => ["e","i","o","aw","ow","oy"]
 	);
 
-	srand unpack "N",md5(SECRET.$key);
+	srand unpack "N",rc4(null_string(4),"c".$key.SECRET);
 
 	return cfg_expand("%W%",%grammar);
 }
@@ -119,30 +129,48 @@ sub cfg_expand($%)
 
 
 #
-# HTML colour parser
+# Stylesheet functions
 #
 
-sub parse_colour($)
+sub find_stylesheet_color($$)
 {
-	my ($color)=@_;
+	my ($style,$selector)=@_;
 
-	if($color=~/#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i)
+	my ($sheet)=grep
 	{
-		return (hex($1),hex($2),hex($3));
-	}
-	elsif($color=~/#([0-9a-f])([0-9a-f])([0-9a-f])/i)
-	{
-		return (hex($1x2),hex($2x2),hex($3x2));
-	}
-	elsif($color=~/rgb\s*\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/)
-	{
-		return ($1,$2,$3);
-	}
+		my ($title)=m!([^/]+)\.css$!i;
+		$title=ucfirst $title;
+		$title=~s/_/ /g;
+		$title=~s/ ([a-z])/ \u$1/g;
+		$title=~s/([a-z])([A-Z])/$1 $2/g;
+		$title eq $style;
+	} glob(CSS_DIR."*.css");
+	return (128,0,0) unless($sheet);
 
-die $color;
+	my $contents;
+	open STYLESHEET,$sheet or return (128,0,0);
+	$contents.=$_ while(<STYLESHEET>);
+	close STYLESHEET;
 
-	return (0,0,0);
+	if($contents=~/(?:}|^)\s+\Q$selector\E\s*{[^}]*color:\s*([^;}]+?)\s*(?:;|}|^)/s)
+	{
+		my $color=$1;
+		if($color=~/#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i)
+		{
+			return (hex($1),hex($2),hex($3));
+		}
+		elsif($color=~/#([0-9a-f])([0-9a-f])([0-9a-f])/i)
+		{
+			return (hex($1x2),hex($2x2),hex($3x2));
+		}
+		elsif($color=~/rgb\s*\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/)
+		{
+			return ($1,$2,$3);
+		}
+	}
+	return (128,0,0);
 }
+
 
 
 #
@@ -171,6 +199,13 @@ sub make_image($)
 	end_gif();
 }
 
+sub max(@)
+{
+	my $max=pop @_;
+	$max=$_>$max?$_:$max for(@_);
+	return $max;
+}
+
 sub emit_pixel_block($$)
 {
 	my ($pixels,$num)=@_;
@@ -188,7 +223,7 @@ my ($scale,$rot,$dx,$dy);
 sub draw_string($)
 {
 	my @chars=split //,$_[0];
-	my $x_offs=int($pic_height/$font_height*2);
+	my $x_offs=int(CAPTCHA_HEIGHT/$font_height*2);
 
 	foreach my $char (@chars)
 	{
@@ -215,7 +250,7 @@ sub draw_string($)
 				$prev_y=$y;
 			}
 		}
-		$x_offs+=int(($char_w+$spacing)*$scale);
+		$x_offs+=int(($char_w+(CAPTCHA_SPACING))*$scale);
 	}
 }
 
@@ -225,8 +260,8 @@ sub setup_transform($)
 
 	$dx=$char_w/2;
 	$dy=$font_height/2;
-	$scale=$pic_height/$font_height*(1+$scale_rand*(1-rand(2)));
-	$rot=(rand(2)-1)*$rot_rand;
+	$scale=CAPTCHA_HEIGHT/$font_height*(1+(CAPTCHA_SCALING)*(1-rand(2)));
+	$rot=(rand(2)-1)*(CAPTCHA_ROTATION);
 }
 
 sub transform_coords($$)
@@ -234,8 +269,8 @@ sub transform_coords($$)
 	my ($x,$y)=@_;
 
 	return (
-		int($scale*(cos($rot)*($x-$dx)-sin($rot)*($y-$dy)+$dx+rand($scribble))),
-		int($scale*(sin($rot)*($x-$dx)+cos($rot)*($y-$dy)+$dy+rand($scribble)))
+		int($scale*(cos($rot)*($x-$dx)-sin($rot)*($y-$dy)+$dx+rand(CAPTCHA_SCRIBBLE))),
+		int($scale*(sin($rot)*($x-$dx)+cos($rot)*($y-$dy)+$dy+rand(CAPTCHA_SCRIBBLE)))
 	);
 }
 

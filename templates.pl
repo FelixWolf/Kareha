@@ -1,6 +1,10 @@
 use strict;
 
-use constant GLOBAL_HEAD_TEMPLATE => q{
+BEGIN { require 'wakautils.pl'; }
+
+
+
+use constant GLOBAL_HEAD_INCLUDE => q{
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
@@ -18,12 +22,14 @@ use constant GLOBAL_HEAD_TEMPLATE => q{
 </loop>
 
 <script type="text/javascript" src="<var $path>kareha.js"></script>
-</head><body>
+</head>
 };
 
 
 
-use constant GLOBAL_FOOT_TEMPLATE => q{
+use constant GLOBAL_FOOT_INCLUDE => q{
+
+<const include("include/footer.txt")>
 
 <div id="footer">
 - <a href="<var $path><var RSS_FILE>">RSS feed</a>
@@ -37,18 +43,26 @@ use constant GLOBAL_FOOT_TEMPLATE => q{
 
 
 
-use constant MAIN_PAGE_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
+use constant MAIN_PAGE_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
+<body class="mainpage">
+
+<const include("include/header.txt")>
 
 <div id="topbar">
 
 <div id="stylebar">
 <strong>Board look</strong>
-<script type="text/javascript">write_stylesheet_links(" ")</script>
+<loop \@stylesheets>
+	<a href="javascript:set_stylesheet('<var $title>')"><var $title></a>
+</loop>
 </div>
 
 <div id="managerbar">
 <strong>Admin</strong>
 <a href="javascript:set_manager()">Manage</a>
+<span class="manage" style="display:none;">
+<a href="<var $self>?task=rebuild">Rebuild caches</a>
+</span>
 </div>
 
 </div>
@@ -86,10 +100,7 @@ use constant MAIN_PAGE_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
 <if ENABLE_CAPTCHA>
 	<td>Verification:</td>
 	<td><input type="text" name="captcha" size="19" />
-		<script type="text/javascript">
-		document.write('<img class="threadcaptcha" src="'+make_captcha_link(".threadcaptcha")+'" />');
-		document.write('<input type="hidden" name="key" value="'+captcha_key+'" />');
-		</script>
+	<img class="threadcaptcha" src="captcha.pl?selector=.threadcaptcha" />
 	</td><td></td>
 </tr><tr>
 </if>
@@ -101,16 +112,18 @@ use constant MAIN_PAGE_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
 	<td colspan="2"><textarea name="comment" cols="64" rows="5" onfocus="expand_field(<var $thread>)" onblur="shrink_field(<var $thread>)"></textarea></td>
 </tr></tbody></table>
 </form>
-<script type="text/javascript">with(document.threadform) {name.value=get_cookie("name"); email.value=get_cookie("email"); password.value=get_password("password"); }</script>
+<script type="text/javascript">with(document.threadform) {if(!name.value) name.value=get_cookie("name"); if(!email.value) email.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); }</script>
 
 </div>
+
+<const include("include/mid.txt")>
 
 <div id="posts">
 
 <loop $threads><if $posts>
 	<a name="<var $num>"></a>
-	<if $permasage><div class="sagesummary"></if>
-	<if !$permasage><div class="summary"></if>
+	<if $permasage><div class="sagethread"></if>
+	<if !$permasage><div class="thread"></if>
 	<h2><var $title> <small>(<var $postcount><if $permasage>, permasaged</if>)</small></h2>
 
 	<div class="threadnavigation">
@@ -156,10 +169,7 @@ use constant MAIN_PAGE_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
 	<if ENABLE_CAPTCHA>
 		<td>Verification:</td>
 		<td><input type="text" name="captcha" size="19" />
-			<script type="text/javascript">
-			document.write('<img class="postcaptcha" src="'+make_captcha_link(".postcaptcha")+'" />');
-			document.write('<input type="hidden" name="key" value="'+captcha_key+'" />');
-			</script>
+		<img class="postcaptcha" src="captcha.pl?selector=.postcaptcha" />
 		</td>
 	</tr><tr>
 	</if>
@@ -175,18 +185,21 @@ use constant MAIN_PAGE_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
 		</div></td>
 	</tr></tbody></table>
 	</form>
-	<script type="text/javascript">with(document.postform<var $thread>) {name.value=get_cookie("name"); email.value=get_cookie("email"); password.value=get_password("password"); }</script>
+	<script type="text/javascript">with(document.postform<var $thread>) {if(!name.value) name.value=get_cookie("name"); if(!email.value) email.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); }</script>
 
 	</div>
 </if></loop>
 
 </div>
 
-}.GLOBAL_FOOT_TEMPLATE;
+}.GLOBAL_FOOT_INCLUDE);
 
 
 
-use constant THREAD_HEAD_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
+use constant THREAD_HEAD_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
+<body class="threadpage">
+
+<const include("include/header.txt")>
 
 <div id="topbar">
 
@@ -201,7 +214,9 @@ use constant THREAD_HEAD_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
 
 <div id="stylebar">
 <strong>Board look</strong>
-<script type="text/javascript">write_stylesheet_links(" ")</script>
+<loop \@stylesheets>
+	<a href="javascript:set_stylesheet('<var $title>')"><var $title></a>
+</loop>
 </div>
 
 <div id="managerbar">
@@ -219,11 +234,11 @@ use constant THREAD_HEAD_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
 
 <div class="replies">
 <div class="allreplies">
-};
+});
 
 
 
-use constant THREAD_FOOT_TEMPLATE => q{
+use constant THREAD_FOOT_TEMPLATE => compile_template( q{
 
 </div>
 </div>
@@ -243,10 +258,7 @@ use constant THREAD_FOOT_TEMPLATE => q{
 <if ENABLE_CAPTCHA>
 	<td>Verification:</td>
 	<td><input type="text" name="captcha" size="19" />
-		<script type="text/javascript">
-		document.write('<img class="postcaptcha" src="'+make_captcha_link(".postcaptcha")+'" />');
-		document.write('<input type="hidden" name="key" value="'+captcha_key+'" />');
-		</script>
+		<img class="postcaptcha" src="<var $path>captcha.pl?selector=.postcaptcha" />
 	</td>
 </tr><tr>
 </if>
@@ -254,23 +266,31 @@ use constant THREAD_FOOT_TEMPLATE => q{
 	<td><textarea name="comment" cols="64" rows="5" onfocus="expand_field(<var $thread>)" onblur="shrink_field(<var $thread>)"></textarea><br /></td>
 </tr></tbody></table>
 </form>
-<script type="text/javascript">with(document.postform<var $thread>) {name.value=get_cookie("name"); email.value=get_cookie("email"); password.value=get_password("password"); }</script>
+<script type="text/javascript">with(document.postform<var $thread>) {if(!name.value) name.value=get_cookie("name"); if(!email.value) email.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); }</script>
 
 </div>
 </div>
 
-}.GLOBAL_FOOT_TEMPLATE;
+}.GLOBAL_FOOT_INCLUDE);
 
 
 
-use constant REPLY_TEMPLATE => q{
+use constant THREAD_VIEW_TEMPLATE => compile_template( q{
+<var $header>
+<loop $replies><var $reply></loop>
+<var $footer>
+});
+
+
+
+use constant REPLY_TEMPLATE => compile_template( q{
 
 <div class="reply">
 
 <h3>
-<span class="replynum"><a title="Quote post number in reply" href="javascript:insert('>><var $num>',<var $thread>)"><var $num></a></span>
+<span class="replynum"><a title="Quote post number in reply" href="javascript:insert('&gt;&gt;<var $num>',<var $thread>)"><var $num></a></span>
 Name:
-<span class="postername"><if $email><a href="mailto:<var $email>"></if><var $name><if $email></a></if></span><if $trip><span class="postertrip"><if $email><a href="mailto:<var $email>"></if><var TRIPKEY><var $trip><if $email></a></if></span></if>
+<span class="postername"><if $email><a href="mailto:<var $email>"></if><var $name><if $email></a></if></span><if $trip><span class="postertrip"><if $email><a href="mailto:<var $email>"></if><var $trip><if $email></a></if></span></if>
 <var $date>
 <span class="deletebutton">[<a href="javascript:delete_post(<var $thread>,<var $num>)">Del</a>]</span>
 </h3>
@@ -278,11 +298,11 @@ Name:
 <div class="replytext"><var $comment></div>
 
 </div>
-};
+});
 
 
 
-use constant DELETED_TEMPLATE => q{
+use constant DELETED_TEMPLATE => compile_template( q{
 <div class="deletedreply">
 <h3>
 <span class="replynum"><var $num></span>
@@ -291,11 +311,14 @@ Post deleted
 <if $reason eq 'mod'>by moderator.</if>
 </h3>
 </div>
-};
+});
 
 
 
-use constant BACKLOG_PAGE_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
+use constant BACKLOG_PAGE_TEMPLATE => compile_template( GLOBAL_HEAD_INCLUDE.q{
+<body class="backlogpage">
+
+<const include("include/header.txt")>
 
 <div id="topbar">
 
@@ -306,12 +329,14 @@ use constant BACKLOG_PAGE_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
 
 <div id="stylebar">
 <strong>Board look</strong>
-<script type="text/javascript">write_stylesheet_links(" ")</script>
+<loop \@stylesheets>
+	<a href="javascript:set_stylesheet('<var $title>')"><var $title></a>
+</loop>
 </div>
 
 <div id="managerbar">
 <strong>Admin</strong>
-<a href="javascript:thread_manager()">Manage</a>
+<a href="javascript:set_manager()">Manage</a>
 </div>
 
 </div>
@@ -334,11 +359,11 @@ use constant BACKLOG_PAGE_TEMPLATE => GLOBAL_HEAD_TEMPLATE.q{
 
 </div>
 
-}.GLOBAL_FOOT_TEMPLATE;
+}.GLOBAL_FOOT_INCLUDE);
 
 
 
-use constant RSS_TEMPLATE => q{
+use constant RSS_TEMPLATE => compile_template( q{
 <?xml version="1.0" encoding="<var CHARSET>"?>
 <rss version="2.0">
 
@@ -363,28 +388,29 @@ use constant RSS_TEMPLATE => q{
 
 </channel>
 </rss>
-};
+});
 
 
 #
 # Error strings
 #
 
-use constant S_BADCAPTCHA => 'Wrong verification code entered';			# Returns error when the captcha is wrong
-use constant S_UNJUST => 'Unjust POST';									# Returns error on an unjust POST - prevents floodbots or ways not using POST method?
-use constant S_NOTEXT => 'No text entered';								# Returns error for no text entered in to title/comment
-use constant S_NOTITLE => 'No title entered';							# Returns error for no title entered
-use constant S_TOOLONG => 'Field too long';								# Returns error for too many characters in a given field
-use constant S_TOOMANYLINES => 'Too many lines';						# Returns error for too many characters in a given field
-use constant S_UNUSUAL => 'Abnormal reply';								# Returns error for abnormal reply? (this is a mystery!)
+use constant S_BADCAPTCHA => 'Wrong verification code entered';			# Error message when the captcha is wrong
+use constant S_UNJUST => 'Unjust POST';									# Error message on an unjust POST - prevents floodbots or ways not using POST method?
+use constant S_NOTEXT => 'No text entered';								# Error message for no text entered in to title/comment
+use constant S_NOTITLE => 'No title entered';							# Error message for no title entered
+use constant S_TOOLONG => 'Field too long';								# Error message for too many characters in a given field
+use constant S_TOOMANYLINES => 'Too many lines';						# Error message for too many characters in a given field
+use constant S_UNUSUAL => 'Abnormal reply';								# Error message for abnormal reply? (this is a mystery!)
+use constant S_SPAM => 'Spammers are not welcome here';					# Error message when detecting spam
 use constant S_THREADCOLL => 'Somebody else tried to post a thread at the same time. Try again';		# If two people create threads during the same second
-use constant S_PROXY => 'Proxy detected on port %d';					# Returns error for proxy detection.
-use constant S_NOTHREADERR => 'Thread specified does not exist';		# Returns error when a non-existant thread is accessed
-use constant S_THREADLOCKED => 'Thread is locked';						# Returns error when a non-existant thread is accessed
-use constant S_BADDELPASS => 'Password incorrect';						# Returns error for wrong password (when user tries to delete file)
-use constant S_NOTWRITE => 'Cannot write to directory';					# Returns error when the script cannot write to the directory, the chmod (777) is wrong
-use constant S_NOADMIN => 'No ADMIN_PASS defined in the configuration';	# Returns error when the config is incomplete
-use constant S_NOSECRET => 'No SECRET defined in the configuration';	# Returns error when the config is incomplete
+use constant S_PROXY => 'Proxy detected on port %d';					# Error message for proxy detection.
+use constant S_NOTHREADERR => 'Thread specified does not exist';		# Error message when a non-existant thread is accessed
+use constant S_THREADLOCKED => 'Thread is locked';						# Error message when a non-existant thread is accessed
+use constant S_BADDELPASS => 'Password incorrect';						# Error message for wrong password (when user tries to delete file)
+use constant S_NOTWRITE => 'Cannot write to directory';					# Error message when the script cannot write to the directory, the chmod (777) is wrong
+use constant S_NOTASK => 'Script error; no task speficied';				# Error message when calling the script incorrectly
+use constant S_NOLOG => 'Couldn\'t write to log.txt';					# Error message when log.txt is not writeable or similar
 
 
 

@@ -91,11 +91,6 @@ var manager;
 function set_manager()
 {
 	manager=prompt("Enter management password:");
-}
-
-function thread_manager()
-{
-	manager=prompt("Enter management password:");
 
 	var spans=document.getElementsByTagName("span");
 	for(var i=0;i<spans.length;i++)
@@ -129,33 +124,6 @@ function delete_post(thread,post)
 
 
 
-function find_stylesheet_color(selector)
-{
-	var sheets=document.styleSheets;
-	for(var i=0;i<sheets.length;i++)
-	if(!sheets[i].disabled)
-	{
-		var rules=sheets[i].cssRules||sheets[i].rules;
-		for(var j=0;j<rules.length;j++)
-		if(rules[j].selectorText==selector)
-		{
-			return(rules[j].style.color);
-		}
-	}
-}
-
-function make_captcha_link(classname)
-{
-	return(
-		'captcha.pl?key='
-		+captcha_key
-		+'&color='
-		+escape(find_stylesheet_color(classname))
-	);
-}
-
-
-
 function set_stylesheet(styletitle)
 {
 	var links=document.getElementsByTagName("link");
@@ -172,7 +140,7 @@ function set_stylesheet(styletitle)
 	}
 	if(!found) set_preferred_stylesheet();
 
-	if(document.images)
+/*	if(document.images)
 	{
 		for(var i=0;i<document.images.length;i++)
 		{
@@ -182,7 +150,7 @@ function set_stylesheet(styletitle)
 				document.images[i].src=make_captcha_link("."+document.images[i].getAttribute('class'));
 			}
 		}
-	}
+	}*/
 }
 
 function set_preferred_stylesheet()
@@ -217,23 +185,6 @@ function get_preferred_stylesheet()
 		if(rel.indexOf("style")!=-1&&rel.indexOf("alt")==-1&&title) return title;
 	}
 	return null;
-}
-
-function write_stylesheet_links(separator)
-{
-	var links=document.getElementsByTagName("link");
-	var first=true;
-	for(var i=0;i<links.length;i++)
-	{
-		var rel=links[i].getAttribute("rel");
-		var title=links[i].getAttribute("title");
-		if(rel.indexOf("style")!=-1&&title)
-		{
-			if(separator&&!first) document.write(separator);
-			document.write('<a href="javascript:set_stylesheet(\''+title+'\')">'+title+'</a>');
-			first=false;
-		}
-	}
 }
 
 /*window.onload=function(e)

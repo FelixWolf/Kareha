@@ -122,14 +122,14 @@ form {
 
 #posts {
 }
-#posts .summary, #posts .thread {
+#posts .thread {
 	background-color: #49525D;
 	padding: 4px;
 	margin-bottom: 2em;
 	clear: both;
 	-moz-border-radius: 6px;
 }
-#posts .sagesummary, #posts .sagethread
+#posts .sagethread
 {
 	background-color: #D6E0F0;
 	padding: 4px;
@@ -192,6 +192,7 @@ form {
 }
 #posts h3 {
 	/*font-size: .9em;*/
+	position: relative;
 	font-size: 1em;
 	color: #000000;
 	font-weight: normal;
@@ -226,10 +227,11 @@ form {
 	font-size: 1.2em;
 }
 #posts .deletebutton {
+	position: absolute;
+	right: 0.5em;
 	font-size: small;
-	float: right;
-	position: relative;
-	top: -1.5em;
+/*	position: relative;
+	top: -1.5em;*/
 }
 #posts .replytext > :first-child {
 	margin-top: 0em;
