@@ -397,7 +397,7 @@ sub format_comment($$)
 	$comment=~s!^(&gt;.*)$!\<span class="quoted"\>$1\</span\>!gm;
 
 	# make URLs into links - is this magic or what
-	$comment=~s!(http://[^\s\<\>"]*[^\s\<\>"\.\)\]\,])!\<a href="$1"\>$1\</a\>!sgi;
+	$comment=~s{(http://[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:\s|$))}{\<a href="$1"\>$1\</a\>$2}sgi;
 
 	# count number of newlines if MAX_LINES is not 0 - wow, magic.
 	die S_TOOMANYLINES if(MAX_LINES and scalar(()=$comment=~m/\n/g)>=MAX_LINES);

@@ -138,7 +138,8 @@ function set_stylesheet(styletitle)
 	{
 		for(var i=0;i<document.images.length;i++)
 		{
-			if(document.images[i].getAttribute('class').indexOf('captcha')!=-1)
+			var classname=document.images[i].getAttribute('class');
+			if(classname&&classname.indexOf('captcha')!=-1)
 			{
 				document.images[i].src=make_captcha_link("."+document.images[i].getAttribute('class'));
 			}
